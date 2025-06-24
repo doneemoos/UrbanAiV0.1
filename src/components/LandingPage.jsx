@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './cssComponents/LandingPage.css';
+import GoogleMapView from "./GoogleMapView";
+
 
 function LandingPage() {
   const [complaint, setComplaint] = useState('');
@@ -32,13 +34,13 @@ function LandingPage() {
 
   return (
     <div className="LandingPage">
-      <h1>UrbanAi - your intelligent city</h1>
+      <div className="hero">
+     <h1>UrbanAi - your intelligent city</h1>
       <p>Report any problem or suggestion to help us improve our city together.</p>
 
-      <div className="map-view">
-        <h2>View Complaints on Map</h2>
-        {/* Map component will be integrated here */}
       </div>
+    
+
 
       <div className="complaint-form">
         <h2>Submit a Complaint</h2>
@@ -63,6 +65,11 @@ function LandingPage() {
             {error}
           </div>
         )}
+      </div>
+      
+      <div className="map-view">
+        <h2>View Complaints on Map</h2>
+        <GoogleMapView />
       </div>
 
       <div className="navbar-links">

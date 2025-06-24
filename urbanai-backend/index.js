@@ -24,7 +24,7 @@ app.post("/classify", async (req, res) => {
         {
           role: "user",
           content:
-            `Încadrează textul de mai jos într-una din categoriile: Iluminat, Drumuri, Salubritate, Altele. Returnează DOAR categoria, fără alte explicații. Text: "${text}"`
+            `Încadrează textul de mai jos într-una din categoriile, dar trebuie neaparat mentionat locul sau strada: Iluminat, Drumuri, Incidente Periculoase(ex copac rupt, sau altele) , Salubritate, Transport, Deșeuri, Parcări, Altele. Returnează DOAR categoria, fără alte explicații, dar daca nu este mentionat locul sau strada exacta, nu afisa nimic! Text: "${text}"`
         }
       ],
       max_tokens: 10,
