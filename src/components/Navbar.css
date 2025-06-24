@@ -1,42 +1,69 @@
-
 .navStyle {
-  width: 90%;
-  min-height: 12vh; 
+  width: 95%;
+  min-height: 12vh;
   display: flex;
   align-items: center;
-  justify-content: center;
+  margin: 0;
+  background: transparent;
   margin: auto;
-  
+}
+.logo{
+  height: 8rem;
+}
+.split1{
+  display: flex;
+  align-items: center;
 }
 
+/* Navbar container */
 .navbar {
-   display: flex;
-   justify-content: space-between;
   width: 100%;
-  
+  display: flex;
+  justify-content: flex-end; /* mută meniul la dreapta */
+  align-items: center;
 }
 
+/* Navbar list */
 .navbar ul {
   display: flex;
-  justify-content: space-around;
+  gap: 2rem;         /* spațiere între link-uri */
   align-items: center;
   margin: 0;
   padding: 0;
   list-style: none;
-  width: 20%;
 }
 
+/* Navbar list items */
 .navbar li {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
+  margin: 0;
 }
 
-.navbar a {
-  color: #000000;
+/* Navbar links */
+.navbar a, .navbar button {
+  color: #25597b;
+  background: none;
+  border: none;
   text-decoration: none;
-  font-weight: bold;
-  transition: color 0.2s;
+  font-weight: 500;
+  font-family: inherit;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  transition: background 0.2s, color 0.2s;
 }
 
-.navbar a:hover {
-  color: #ffd700;
+/* Hover efect pentru link-uri și buton */
+.navbar a:hover, .navbar button:hover {
+  color: #fff;
+  background: #0070e0;
+}
+
+/* Responsive (opțional) */
+@media (max-width: 700px) {
+  .navbar ul {
+    gap: 1rem;
+    font-size: 1rem;
+  }
 }
