@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { GoogleMap, LoadScript, Marker, Circle } from "@react-google-maps/api";
+import { GoogleMap, LoadScript, Marker, Circle, InfoWindow } from "@react-google-maps/api";
 
 const containerStyle = {
   width: "100%",
@@ -71,6 +71,7 @@ function GoogleMapView({ markers = [] }) {
     ? { lat: markers[0].lat, lng: markers[0].lng }
     : { lat: 45.75372, lng: 21.22571 };
 
+  // Problemele de la coordonatele selectate (cu toleranță)
   const selectedIssues = selectedCoords
     ? markers.filter(
         (m) =>
@@ -80,50 +81,51 @@ function GoogleMapView({ markers = [] }) {
     : [];
 
   return (
-    <div style={{ display: "flex", gap: "2rem" }}>
-      <LoadScript googleMapsApiKey="AIzaSyDW5XKKX0zKaYfddYpTzaF3alj98xMD0fw">
-        <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={13}>
-          {markers.map((m, idx) => (
-            <React.Fragment key={idx}>
-              <Circle
-                center={{ lat: m.lat, lng: m.lng }}
-                options={getCircleOptions(m, markers)}
-              />
-              <Marker
-                position={{ lat: m.lat, lng: m.lng }}
-                icon={{
-                  url: getMarkerColor(m, markers),
-                }}
-                onClick={() => setSelectedCoords({ lat: m.lat, lng: m.lng })}
-              />
-            </React.Fragment>
-          ))}
-        </GoogleMap>
-      </LoadScript>
-      <div style={{ minWidth: 300 }}>
+    <LoadScript googleMapsApiKey="AIzaSyDW5XKKX0zKaYfddYpTzaF3alj98xMD0fw">
+      <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={13}>
+        {markers.map((m, idx) => (
+          <React.Fragment key={idx}>
+            <Circle
+              center={{ lat: m.lat, lng: m.lng }}
+              options={getCircleOptions(m, markers)}
+            />
+            <Marker
+              position={{ lat: m.lat, lng: m.lng }}
+              icon={{
+                url: getMarkerColor(m, markers),
+              }}
+              onClick={() => setSelectedCoords({ lat: m.lat, lng: m.lng })}
+            />
+          </React.Fragment>
+        ))}
         {selectedCoords && (
-          <>
-            <h3>
-              Probleme la locația:{" "}
-              {selectedIssues[0] && selectedIssues[0].address
-                ? selectedIssues[0].address.charAt(0).toUpperCase() + selectedIssues[0].address.slice(1)
-                : ""}
-            </h3>
-            <ul>
-              {selectedIssues.map((issue, i) => (
-                <li key={i}>
-                  <b>{issue.title}</b>
-                  <br />
-                  {issue.desc}
-                </li>
-              ))}
-            </ul>
-            {selectedIssues.length === 0 && <p>Nicio problemă raportată aici.</p>}
-          </>
+          <InfoWindow
+            position={selectedCoords}
+            onCloseClick={() => setSelectedCoords(null)}
+          >
+            <div style={{ minWidth: 220 }}>
+              <h3>
+                Probleme la locația:{" "}
+                {selectedIssues[0] && selectedIssues[0].address
+                  ? selectedIssues[0].address.charAt(0).toUpperCase() +
+                    selectedIssues[0].address.slice(1)
+                  : ""}
+              </h3>
+              <ul>
+                {selectedIssues.map((issue, i) => (
+                  <li key={i}>
+                    <b>{issue.title}</b>
+                    <br />
+                    {issue.desc}
+                  </li>
+                ))}
+              </ul>
+              {selectedIssues.length === 0 && <p>Nicio problemă raportată aici.</p>}
+            </div>
+          </InfoWindow>
         )}
-        {!selectedCoords && <p>Apasă pe un pin pentru detalii!</p>}
-      </div>
-    </div>
+      </GoogleMap>
+    </LoadScript>
   );
 }
 
