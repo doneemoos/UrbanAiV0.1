@@ -17,6 +17,8 @@ function Navbar() {
     <div className="navStyle">
       <ul className="split1">
        <a href="/home"><img className="logo" src={Logo}></img></a> 
+       <a href="/news">News</a>
+       <a href="/events">Events</a>
       </ul>
       <nav className="navbar">
         <ul>
