@@ -1,24 +1,31 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import './Navbar.css';
-import logo from './img/UrbanAi_logo_transparent.png';
+
+import React from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../AuthContext";
 
 function Navbar() {
+  const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
   return (
-    <nav className="borderNav">
-    <div className="navStyle">
-      <nav className="navbar">
-        <img src={logo} alt="Girl in a jacket"  height="100rem"></img>
-        <ul>
-          <li>
-            <Link to="/login">Login</Link>
-          </li>
-          <li>
-            <Link to="/signup">Signup</Link>
-          </li>
-        </ul>
-      </nav>
-    </div>
+    <nav>
+      <Link to="/">Home</Link>
+      {isAuthenticated ? (
+        <>
+          <Link to="/dashboard">Dashboard</Link>
+          <button onClick={handleLogout}>Log out</button>
+        </>
+      ) : (
+        <>
+          <Link to="/login">Login</Link>
+          <Link to="/signup">Sign up</Link>
+        </>
+      )}
     </nav>
   );
 }

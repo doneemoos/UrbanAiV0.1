@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
 
 function Signup() {
   const [email, setEmail] = useState('');
@@ -9,10 +10,13 @@ function Signup() {
   const navigate = useNavigate();
   const auth = getAuth();
 
+  const { login } = useAuth();
+
   const handleSignup = async (e) => {
     e.preventDefault();
     try {
       await createUserWithEmailAndPassword(auth, email, password);
+      login();
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);
