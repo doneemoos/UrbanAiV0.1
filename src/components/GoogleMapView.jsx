@@ -1,24 +1,129 @@
-import React from "react";
-import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
+import React, { useState } from "react";
+import { GoogleMap, LoadScript, Marker, Circle } from "@react-google-maps/api";
 
-// Setează dimensiunea și centrul hărții
 const containerStyle = {
   width: "100%",
   height: "400px"
 };
-const center = {
-  lat: 45.75372, // Timișoara (exemplu) - poți schimba
-  lng: 21.22571
-};
 
-function GoogleMapView() {
+function getMarkerColor(issue, allIssues) {
+  const count = allIssues.filter(
+    (i) =>
+      Math.abs(i.lat - issue.lat) < 0.0001 &&
+      Math.abs(i.lng - issue.lng) < 0.0001
+  ).length;
+
+  if (count === 1) {
+    return "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+  } else if (count >= 2 && count <= 5) {
+    return "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png";
+  } else if (count >= 6) {
+    return "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
+  }
+  return "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+}
+
+function getCircleOptions(issue, allIssues) {
+  const count = allIssues.filter(
+    (i) =>
+      Math.abs(i.lat - issue.lat) < 0.0001 &&
+      Math.abs(i.lng - issue.lng) < 0.0001
+  ).length;
+
+  if (count === 1) {
+    return {
+      fillColor: "#00ff00",
+      fillOpacity: 0.2,
+      strokeColor: "#00ff00",
+      strokeOpacity: 0.5,
+      radius: 60
+    };
+  } else if (count >= 2 && count <= 5) {
+    return {
+      fillColor: "#ffff00",
+      fillOpacity: 0.25,
+      strokeColor: "#ffff00",
+      strokeOpacity: 0.6,
+      radius: 90
+    };
+  } else if (count >= 6) {
+    return {
+      fillColor: "#ff0000",
+      fillOpacity: 0.05,
+      strokeColor: "#ff0000",
+      strokeOpacity: 0.5,
+      radius: 120
+    };
+  }
+  return {
+    fillColor: "#00ff00",
+    fillOpacity: 0.2,
+    strokeColor: "#00ff00",
+    strokeOpacity: 0.5,
+    radius: 60
+  };
+}
+
+function GoogleMapView({ markers = [] }) {
+  const [selectedCoords, setSelectedCoords] = useState(null);
+
+  const center = markers.length
+    ? { lat: markers[0].lat, lng: markers[0].lng }
+    : { lat: 45.75372, lng: 21.22571 };
+
+  const selectedIssues = selectedCoords
+    ? markers.filter(
+        (m) =>
+          Math.abs(m.lat - selectedCoords.lat) < 0.0001 &&
+          Math.abs(m.lng - selectedCoords.lng) < 0.0001
+      )
+    : [];
+
   return (
-    <LoadScript googleMapsApiKey="AIzaSyDW5XKKX0zKaYfddYpTzaF3alj98xMD0fw">
-      <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={13}>
-        {/* Marker exemplu */}
-        <Marker position={center} />
-      </GoogleMap>
-    </LoadScript>
+    <div style={{ display: "flex", gap: "2rem" }}>
+      <LoadScript googleMapsApiKey="AIzaSyDW5XKKX0zKaYfddYpTzaF3alj98xMD0fw">
+        <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={13}>
+          {markers.map((m, idx) => (
+            <React.Fragment key={idx}>
+              <Circle
+                center={{ lat: m.lat, lng: m.lng }}
+                options={getCircleOptions(m, markers)}
+              />
+              <Marker
+                position={{ lat: m.lat, lng: m.lng }}
+                icon={{
+                  url: getMarkerColor(m, markers),
+                }}
+                onClick={() => setSelectedCoords({ lat: m.lat, lng: m.lng })}
+              />
+            </React.Fragment>
+          ))}
+        </GoogleMap>
+      </LoadScript>
+      <div style={{ minWidth: 300 }}>
+        {selectedCoords && (
+          <>
+            <h3>
+              Probleme la locația:{" "}
+              {selectedIssues[0] && selectedIssues[0].address
+                ? selectedIssues[0].address.charAt(0).toUpperCase() + selectedIssues[0].address.slice(1)
+                : ""}
+            </h3>
+            <ul>
+              {selectedIssues.map((issue, i) => (
+                <li key={i}>
+                  <b>{issue.title}</b>
+                  <br />
+                  {issue.desc}
+                </li>
+              ))}
+            </ul>
+            {selectedIssues.length === 0 && <p>Nicio problemă raportată aici.</p>}
+          </>
+        )}
+        {!selectedCoords && <p>Apasă pe un pin pentru detalii!</p>}
+      </div>
+    </div>
   );
 }
 

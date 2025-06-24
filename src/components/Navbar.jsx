@@ -16,9 +16,11 @@ function Navbar() {
   return (
     <div className="navStyle">
       <ul className="split1">
-       <a href="/home"><img className="logo" src={Logo}></img></a> 
-       <a href="/news">News</a>
-       <a href="/events">Events</a>
+        <a href="/">
+          <img className="logo" src={Logo} alt="Logo" />
+        </a>
+        <a href="/news">News</a>
+        <a href="/events">Events</a>
       </ul>
       <nav className="navbar">
         <ul>

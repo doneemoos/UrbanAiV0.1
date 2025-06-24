@@ -1,14 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './cssComponents/LandingPage.css';
 import GoogleMapView from "./GoogleMapView";
+import { getFirestore, collection, onSnapshot } from "firebase/firestore";
+import { initializeApp } from "firebase/app";
+import { firebaseConfig } from "../firebase/config";
 
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 function LandingPage() {
   const [complaint, setComplaint] = useState('');
   const [category, setCategory] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [issues, setIssues] = useState([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "issues"), (snap) => {
+      setIssues(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,12 +48,9 @@ function LandingPage() {
   return (
     <div className="LandingPage">
       <div className="hero">
-     <h1>UrbanAi - your intelligent city</h1>
-      <p>Report any problem or suggestion to help us improve our city together.</p>
-
+        <h1>UrbanAi - your intelligent city</h1>
+        <p>Report any problem or suggestion to help us improve our city together.</p>
       </div>
-    
-
 
       <div className="complaint-form">
         <h2>Submit a Complaint</h2>
@@ -69,7 +79,7 @@ function LandingPage() {
       
       <div className="map-view">
         <h2>View Complaints on Map</h2>
-        <GoogleMapView />
+        <GoogleMapView markers={issues} />
       </div>
 
       <div className="navbar-links">
