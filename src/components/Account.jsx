@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart, BarElement, CategoryScale, LinearScale } from "chart.js";
-import { getFirestore, collection, query, where, onSnapshot } from "firebase/firestore";
+import { getFirestore, collection, query, where, onSnapshot, doc, setDoc } from "firebase/firestore";
 import { getAuth, updatePassword } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 Chart.register(BarElement, CategoryScale, LinearScale);
 
 const app = initializeApp(firebaseConfig);
@@ -66,6 +67,18 @@ function Account() {
       setPasswordMessage("Datele au fost actualizate!");
     }
     // Poți adăuga și logica de update pentru alte date dacă vrei
+
+    const storage = getStorage();
+    const userRef = doc(db, "users", auth.currentUser.uid);
+
+    if (profile.profilePic) {
+      // Upload imagine
+      const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
+      await uploadBytes(storageRef, profile.profilePic);
+      const url = await getDownloadURL(storageRef);
+      // Salvează URL-ul în Firestore
+      await setDoc(userRef, { profilePicUrl: url }, { merge: true });
+    }
   };
 
   const chartData = {

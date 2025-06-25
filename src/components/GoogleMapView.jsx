@@ -69,7 +69,20 @@ function GoogleMapView({ markers = [] }) {
 
   const center = markers.length
     ? { lat: markers[0].lat, lng: markers[0].lng }
-    : { lat: 45.75372, lng: 21.22571 };
+    : { lat: 45.75372, lng: 21.22571 }; // Timisoara
+
+  // Limitează harta la zona Timișoara (bounding box)
+  const mapOptions = {
+    restriction: {
+      latLngBounds: {
+        north: 45.810,
+        south: 45.690,
+        east: 21.320,
+        west: 21.140,
+      },
+      strictBounds: true,
+    },
+  };
 
   // Problemele de la coordonatele selectate (cu toleranță)
   const selectedIssues = selectedCoords
@@ -82,7 +95,12 @@ function GoogleMapView({ markers = [] }) {
 
   return (
     <LoadScript googleMapsApiKey="AIzaSyDW5XKKX0zKaYfddYpTzaF3alj98xMD0fw">
-      <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={13}>
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={center}
+        zoom={13}
+        options={mapOptions}
+      >
         {markers.map((m, idx) => (
           <React.Fragment key={idx}>
             <Circle
