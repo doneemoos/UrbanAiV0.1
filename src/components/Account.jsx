@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart, BarElement, CategoryScale, LinearScale } from "chart.js";
-import { getFirestore, collection, query, where, onSnapshot, doc, setDoc } from "firebase/firestore";
+import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth, updatePassword } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config";
@@ -16,9 +16,9 @@ const days = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmb
 
 function Account() {
   const [profile, setProfile] = useState({
-    username: "user123",
-    email: "user@email.com",
-    phone: "0712345678",
+    username: "",
+    email: "",
+    phone: "",
     password: "",
     profilePic: null,
   });
@@ -29,6 +29,25 @@ function Account() {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
+
+    // Încarcă datele reale din Firestore
+    const userRef = doc(db, "users", user.uid);
+    getDoc(userRef).then((docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setProfile((prev) => ({
+          ...prev,
+          username: data.username || "",
+          email: data.email || user.email || "",
+          phone: data.phone || "",
+        }));
+      } else {
+        setProfile((prev) => ({
+          ...prev,
+          email: user.email || "",
+        }));
+      }
+    });
 
     const q = query(collection(db, "issues"), where("uid", "==", user.uid));
     const unsub = onSnapshot(q, (snap) => {
@@ -79,6 +98,13 @@ function Account() {
       // Salvează URL-ul în Firestore
       await setDoc(userRef, { profilePicUrl: url }, { merge: true });
     }
+
+    // Actualizează și celelalte date ale profilului
+    await setDoc(doc(db, "users", auth.currentUser.uid), {
+      username: profile.username,
+      email: profile.email,
+      phone: profile.phone,
+    }, { merge: true });
   };
 
   const chartData = {
