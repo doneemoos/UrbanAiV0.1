@@ -1,7 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart, BarElement, CategoryScale, LinearScale } from "chart.js";
+import { getFirestore, collection, query, where, onSnapshot } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { initializeApp } from "firebase/app";
+import { firebaseConfig } from "../firebase/config";
 Chart.register(BarElement, CategoryScale, LinearScale);
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const days = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"];
 
 function Account() {
   const [profile, setProfile] = useState({
@@ -12,7 +22,25 @@ function Account() {
     profilePic: null,
   });
 
-  const [stats] = useState([2, 4, 1, 5, 3, 0, 2]); // Exemplu: probleme raportate pe zile
+  const [stats, setStats] = useState([0, 0, 0, 0, 0, 0, 0]); // Duminică-Sâmbătă
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const q = query(collection(db, "issues"), where("uid", "==", user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      const counts = [0, 0, 0, 0, 0, 0, 0];
+      snap.docs.forEach((doc) => {
+        const data = doc.data();
+        const date = new Date(data.created);
+        const day = date.getDay(); // 0 = Duminică, 1 = Luni, ...
+        counts[day]++;
+      });
+      setStats(counts);
+    });
+    return () => unsub();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -29,7 +57,7 @@ function Account() {
   };
 
   const chartData = {
-    labels: ["Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă", "Duminică"],
+    labels: days,
     datasets: [
       {
         label: "Probleme raportate",
@@ -37,6 +65,19 @@ function Account() {
         backgroundColor: "#36a2eb",
       },
     ],
+  };
+
+  const chartOptions = {
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 10,
+        ticks: {
+          stepSize: 1,
+          precision: 0,
+        },
+      },
+    },
   };
 
   return (
@@ -66,7 +107,7 @@ function Account() {
         <button type="submit">Salvează modificările</button>
       </form>
       <h3>Status săptămânal</h3>
-      <Bar data={chartData} />
+      <Bar data={chartData} options={chartOptions} />
     </div>
   );
 }
