@@ -30,6 +30,9 @@ function Navbar() {
                 <Link to="/dashboard">Dashboard</Link>
               </li>
               <li>
+                <Link to="/account">Account</Link> {/* Adaugă acest link */}
+              </li>
+              <li>
                 <button onClick={handleLogout}>Log out</button>
               </li>
             </>

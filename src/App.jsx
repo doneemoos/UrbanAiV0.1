@@ -7,6 +7,7 @@ import Signup from './components/Signup.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import ReportIssue from './components/ReportIssue.jsx';
 import { AuthProvider } from './AuthContext'; // importă contextul
+import Account from './components/Account.jsx';
 import './App.css';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/report" element={<ReportIssue />} />
+             <Route path="/account" element={<Account />} />
           </Routes>
         </div>
       </Router>
