@@ -13,18 +13,21 @@ const auth = getAuth();
 
 const GOOGLE_API_KEY = "AIzaSyDW5XKKX0zKaYfddYpTzaF3alj98xMD0fw";
 
-async function geocodeAddress(address) {
-  const resp = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-      address
-    )}&key=${GOOGLE_API_KEY}`
+// Coordonatele limită pentru Timișoara (folosite și în GoogleMapView)
+const TIMISOARA_BOUNDS = {
+  north: 45.810,
+  south: 45.690,
+  east: 21.320,
+  west: 21.140,
+};
+
+function isInTimisoaraBounds({ lat, lng }) {
+  return (
+    lat <= TIMISOARA_BOUNDS.north &&
+    lat >= TIMISOARA_BOUNDS.south &&
+    lng <= TIMISOARA_BOUNDS.east &&
+    lng >= TIMISOARA_BOUNDS.west
   );
-  const data = await resp.json();
-  if (data.status === "OK") {
-    const loc = data.results[0].geometry.location;
-    return { lat: loc.lat, lng: loc.lng };
-  }
-  throw new Error("Adresa nu a putut fi găsită!");
 }
 
 function ReportIssue() {
@@ -34,6 +37,7 @@ function ReportIssue() {
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]); // File[]
   const [gallery, setGallery] = useState([]); // Data URLs pentru preview
+  const [addressWarning, setAddressWarning] = useState("");
   const navigate = useNavigate();
   const user = auth.currentUser;
 
@@ -61,8 +65,56 @@ function ReportIssue() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setAddressWarning("");
     try {
-      const coords = await geocodeAddress(address);
+      // 1. Cere categoria de la AI
+      const aiResp = await fetch("http://localhost:5000/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: desc }),
+      });
+      if (!aiResp.ok) throw new Error("Eroare la clasificarea AI");
+      const aiData = await aiResp.json();
+      const category = aiData.categorie || "Necunoscut";
+
+      // 2. Geocode address
+      const resp = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+          address
+        )}&key=${GOOGLE_API_KEY}`
+      );
+      const data = await resp.json();
+      if (data.status !== "OK") throw new Error("Adresa nu a putut fi găsită!");
+
+      // 3. Caută rezultate din Timișoara
+      let loc = null;
+      let foundTimisoara = false;
+      for (const result of data.results) {
+        const addressComponents = result.address_components.map((c) => c.long_name.toLowerCase());
+        const isTimisoara =
+          addressComponents.includes("timișoara") ||
+          addressComponents.includes("timisoara");
+        const { lat, lng } = result.geometry.location;
+        if (isTimisoara && isInTimisoaraBounds({ lat, lng })) {
+          loc = { lat, lng };
+          foundTimisoara = true;
+          break;
+        }
+      }
+      // Dacă nu a găsit Timișoara, ia primul rezultat
+      if (!loc) {
+        loc = data.results[0].geometry.location;
+      }
+
+      // 4. Verifică dacă e în limitele Timișoarei
+      if (!isInTimisoaraBounds(loc)) {
+        setAddressWarning("Se acceptă doar adrese din Timișoara!");
+        setLoading(false);
+        return;
+      }
+      if (!foundTimisoara) {
+        setAddressWarning("Adresa introdusă există și în alte orașe. A fost selectată automat adresa din Timișoara, dacă există.");
+      }
 
       // Upload poze în Storage și ia URL-urile
       let imageUrls = [];
@@ -80,12 +132,15 @@ function ReportIssue() {
       await addDoc(collection(db, "issues"), {
         title,
         address,
-        lat: coords.lat,
-        lng: coords.lng,
+        lat: loc.lat,
+        lng: loc.lng,
         desc,
+        category,
         images: imageUrls,
         created: new Date().toISOString(),
         uid: user ? user.uid : null,
+        upvotes: 0,
+        upvotedBy: [],
       });
       navigate("/dashboard");
     } catch (err) {
@@ -139,6 +194,9 @@ function ReportIssue() {
           ))}
         </div>
       </div>
+      {addressWarning && (
+        <div style={{ color: "red", marginBottom: 8 }}>{addressWarning}</div>
+      )}
       <button type="submit" disabled={loading}>
         {loading ? "Se trimite..." : "Trimite"}
       </button>

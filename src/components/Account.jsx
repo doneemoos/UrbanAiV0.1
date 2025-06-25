@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart, BarElement, CategoryScale, LinearScale } from "chart.js";
-import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, getDoc } from "firebase/firestore";
-import { getAuth, updatePassword } from "firebase/auth";
+import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, getDoc, deleteDoc, getDocs } from "firebase/firestore";
+import { getAuth, updatePassword, deleteUser } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useNavigate } from "react-router-dom";
 Chart.register(BarElement, CategoryScale, LinearScale);
 
 const app = initializeApp(firebaseConfig);
@@ -23,11 +24,15 @@ function Account() {
     profilePic: null,
   });
 
-  const [stats, setStats] = useState([0, 0, 0, 0, 0, 0, 0]); // Duminică-Sâmbătă
+  const [stats, setStats] = useState([0, 0, 0, 0, 0, 0, 0]);
   const [passwordMessage, setPasswordMessage] = useState("");
+  const navigate = useNavigate();
+
+  // Detectează dacă e admin
+  const user = auth.currentUser;
+  const isAdmin = user && user.email === "admin@admin.com";
 
   useEffect(() => {
-    const user = auth.currentUser;
     if (!user) return;
 
     // Încarcă datele reale din Firestore
@@ -107,6 +112,33 @@ function Account() {
     }, { merge: true });
   };
 
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Sigur vrei să ștergi contul? Această acțiune este ireversibilă!")) return;
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      // Șterge datele din Firestore (profil)
+      await deleteDoc(doc(db, "users", user.uid));
+      // Șterge toate problemele raportate de utilizator
+      const issuesSnap = await getDocs(query(collection(db, "issues"), where("uid", "==", user.uid)));
+      const batch = db.batch ? db.batch() : null;
+      issuesSnap.forEach((docu) => {
+        if (batch) batch.delete(docu.ref);
+        else deleteDoc(docu.ref);
+      });
+      if (batch) await batch.commit();
+
+      // Șterge userul din Authentication
+      await deleteUser(user);
+
+      // Redirect la landing page
+      navigate("/");
+    } catch (err) {
+      alert("Eroare la ștergerea contului: " + err.message);
+    }
+  };
+
   const chartData = {
     labels: days,
     datasets: [
@@ -162,8 +194,29 @@ function Account() {
           {passwordMessage}
         </div>
       )}
-      <h3>Status săptămânal</h3>
-      <Bar data={chartData} options={chartOptions} />
+      <button
+        type="button"
+        style={{
+          marginTop: 24,
+          background: "#e53935",
+          color: "#fff",
+          border: "none",
+          borderRadius: 6,
+          padding: "10px 20px",
+          fontWeight: 600,
+          cursor: "pointer",
+        }}
+        onClick={handleDeleteAccount}
+      >
+        Șterge contul
+      </button>
+      {/* Chart doar pentru utilizatorii normali */}
+      {!isAdmin && (
+        <>
+          <h3>Status săptămânal</h3>
+          <Bar data={chartData} options={chartOptions} />
+        </>
+      )}
     </div>
   );
 }

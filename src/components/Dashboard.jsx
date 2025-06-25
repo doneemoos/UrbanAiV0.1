@@ -55,6 +55,7 @@ function Dashboard() {
   const [usersXP, setUsersXP] = useState([]);
   const [rank, setRank] = useState(null);
   const [accountCreatedAt, setAccountCreatedAt] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Ascultă autentificarea
   useEffect(() => {
@@ -120,10 +121,18 @@ function Dashboard() {
     setRank(idx >= 0 ? idx + 1 : null);
   }, [user, usersXP]);
 
+  // Setează starea de încărcare după ce problemele sunt încărcate
+  useEffect(() => {
+    setIsLoaded(true);
+  }, [issues]);
+
+  // Detectează dacă e admin
+  const isAdmin = user && user.email === "admin@admin.com";
+
   return (
     <div>
       <h1>Dashboard</h1>
-      {user && (
+      {user && !isAdmin && (
         <div style={{ marginBottom: "1rem", fontWeight: "bold", fontSize: "1.2rem" }}>
           XP-ul tău: <span style={{ color: "#007bff" }}>{xp}</span>
           <br />
@@ -144,7 +153,7 @@ function Dashboard() {
           </div>
         </div>
       )}
-      <GoogleMapView markers={issues} />
+      {isLoaded && <GoogleMapView key={user?.uid || "nou"} markers={issues} />}
       <Link to="/report">
         <button style={{ margin: "1rem 0" }}>Report Issue</button>
       </Link>

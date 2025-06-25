@@ -5,7 +5,7 @@ import "./Navbar.css";
 import Logo from "./img/UrbanAi_logo_transparent.png";
 import defaultProfile from "./img/default-profile.svg";
 import { getAuth } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config";
 
@@ -18,21 +18,23 @@ function Navbar() {
   const [profilePic, setProfilePic] = useState(null);
 
   useEffect(() => {
-    // Încearcă să citești poza de profil din Firestore (colecția "users")
+    let unsub;
     const fetchProfilePic = async () => {
       if (user) {
         const userRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(userRef);
-        if (docSnap.exists() && docSnap.data().profilePicUrl) {
-          setProfilePic(docSnap.data().profilePicUrl);
-        } else {
-          setProfilePic(null);
-        }
+        unsub = onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists() && docSnap.data().profilePicUrl) {
+            setProfilePic(docSnap.data().profilePicUrl);
+          } else {
+            setProfilePic(null);
+          }
+        });
       } else {
         setProfilePic(null);
       }
     };
     fetchProfilePic();
+    return () => { if (unsub) unsub(); };
   }, [user]);
 
   const handleLogout = () => {
@@ -49,10 +51,10 @@ function Navbar() {
           </Link>
         </li>
         <li>
-          <a href="/news">News</a>
+          <Link to="/news">News</Link>
         </li>
         <li>
-          <a href="/events">Events</a>
+          <Link to="/events">Events</Link>
         </li>
       </ul>
       <nav className="navbar">

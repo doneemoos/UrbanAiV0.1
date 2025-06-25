@@ -67,9 +67,7 @@ function getCircleOptions(issue, allIssues) {
 function GoogleMapView({ markers = [] }) {
   const [selectedCoords, setSelectedCoords] = useState(null);
 
-  const center = markers.length
-    ? { lat: markers[0].lat, lng: markers[0].lng }
-    : { lat: 45.75372, lng: 21.22571 }; // Timisoara
+  const center = { lat: 45.75372, lng: 21.22571 }; // Timisoara centru
 
   // Limitează harta la zona Timișoara (bounding box)
   const mapOptions = {
@@ -94,56 +92,54 @@ function GoogleMapView({ markers = [] }) {
     : [];
 
   return (
-    <LoadScript googleMapsApiKey="AIzaSyDW5XKKX0zKaYfddYpTzaF3alj98xMD0fw">
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={center}
-        zoom={13}
-        options={mapOptions}
-      >
-        {markers.map((m, idx) => (
-          <React.Fragment key={idx}>
-            <Circle
-              center={{ lat: m.lat, lng: m.lng }}
-              options={getCircleOptions(m, markers)}
-            />
-            <Marker
-              position={{ lat: m.lat, lng: m.lng }}
-              icon={{
-                url: getMarkerColor(m, markers),
-              }}
-              onClick={() => setSelectedCoords({ lat: m.lat, lng: m.lng })}
-            />
-          </React.Fragment>
-        ))}
-        {selectedCoords && (
-          <InfoWindow
-            position={selectedCoords}
-            onCloseClick={() => setSelectedCoords(null)}
-          >
-            <div style={{ minWidth: 220 }}>
-              <h3>
-                Probleme la locația:{" "}
-                {selectedIssues[0] && selectedIssues[0].address
-                  ? selectedIssues[0].address.charAt(0).toUpperCase() +
-                    selectedIssues[0].address.slice(1)
-                  : ""}
-              </h3>
-              <ul>
-                {selectedIssues.map((issue, i) => (
-                  <li key={i}>
-                    <b>{issue.title}</b>
-                    <br />
-                    {issue.desc}
-                  </li>
-                ))}
-              </ul>
-              {selectedIssues.length === 0 && <p>Nicio problemă raportată aici.</p>}
-            </div>
-          </InfoWindow>
-        )}
-      </GoogleMap>
-    </LoadScript>
+    <GoogleMap
+      mapContainerStyle={containerStyle}
+      center={center}
+      zoom={13}
+      options={mapOptions}
+    >
+      {markers.map((m, idx) => (
+        <React.Fragment key={idx}>
+          <Circle
+            center={{ lat: m.lat, lng: m.lng }}
+            options={getCircleOptions(m, markers)}
+          />
+          <Marker
+            position={{ lat: m.lat, lng: m.lng }}
+            icon={{
+              url: getMarkerColor(m, markers),
+            }}
+            onClick={() => setSelectedCoords({ lat: m.lat, lng: m.lng })}
+          />
+        </React.Fragment>
+      ))}
+      {selectedCoords && (
+        <InfoWindow
+          position={selectedCoords}
+          onCloseClick={() => setSelectedCoords(null)}
+        >
+          <div style={{ minWidth: 220 }}>
+            <h3>
+              Probleme la locația:{" "}
+              {selectedIssues[0] && selectedIssues[0].address
+                ? selectedIssues[0].address.charAt(0).toUpperCase() +
+                  selectedIssues[0].address.slice(1)
+                : ""}
+            </h3>
+            <ul>
+              {selectedIssues.map((issue, i) => (
+                <li key={i}>
+                  <b>{issue.title}</b>
+                  <br />
+                  {issue.desc}
+                </li>
+              ))}
+            </ul>
+            {selectedIssues.length === 0 && <p>Nicio problemă raportată aici.</p>}
+          </div>
+        </InfoWindow>
+      )}
+    </GoogleMap>
   );
 }
 
