@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart, BarElement, CategoryScale, LinearScale } from "chart.js";
 import { getFirestore, collection, query, where, onSnapshot } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, updatePassword } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config";
 Chart.register(BarElement, CategoryScale, LinearScale);
@@ -23,6 +23,7 @@ function Account() {
   });
 
   const [stats, setStats] = useState([0, 0, 0, 0, 0, 0, 0]); // Duminică-Sâmbătă
+  const [passwordMessage, setPasswordMessage] = useState("");
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -50,10 +51,21 @@ function Account() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert("Datele au fost actualizate!");
-    // Aici poți adăuga logica de update către backend
+    setPasswordMessage("");
+    // Actualizează doar dacă s-a introdus o parolă nouă
+    if (profile.password) {
+      try {
+        await updatePassword(auth.currentUser, profile.password);
+        setPasswordMessage("Parola a fost schimbată cu succes!");
+      } catch (error) {
+        setPasswordMessage("Eroare la schimbarea parolei: " + error.message);
+      }
+    } else {
+      setPasswordMessage("Datele au fost actualizate!");
+    }
+    // Poți adăuga și logica de update pentru alte date dacă vrei
   };
 
   const chartData = {
@@ -106,6 +118,11 @@ function Account() {
         </div>
         <button type="submit">Salvează modificările</button>
       </form>
+      {passwordMessage && (
+        <div style={{ color: passwordMessage.includes("succes") ? "green" : "red", marginTop: 8 }}>
+          {passwordMessage}
+        </div>
+      )}
       <h3>Status săptămânal</h3>
       <Bar data={chartData} options={chartOptions} />
     </div>
