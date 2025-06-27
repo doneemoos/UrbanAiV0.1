@@ -26,6 +26,7 @@ function Account() {
 
   const [stats, setStats] = useState([0, 0, 0, 0, 0, 0, 0]);
   const [passwordMessage, setPasswordMessage] = useState("");
+  const [profilePicPreview, setProfilePicPreview] = useState(null);
   const navigate = useNavigate();
 
   // Detectează dacă e admin
@@ -45,12 +46,15 @@ function Account() {
           username: data.username || "",
           email: data.email || user.email || "",
           phone: data.phone || "",
+          profilePicUrl: data.profilePicUrl || "",
         }));
+        setProfilePicPreview(data.profilePicUrl || "");
       } else {
         setProfile((prev) => ({
           ...prev,
           email: user.email || "",
         }));
+        setProfilePicPreview("");
       }
     });
 
@@ -70,10 +74,18 @@ function Account() {
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
-    setProfile((prev) => ({
-      ...prev,
-      [name]: files ? files[0] : value,
-    }));
+    if (name === "profilePic" && files && files[0]) {
+      setProfilePicPreview(URL.createObjectURL(files[0]));
+      setProfile((prev) => ({
+        ...prev,
+        profilePic: files[0],
+      }));
+    } else {
+      setProfile((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -95,9 +107,9 @@ function Account() {
     const storage = getStorage();
     const userRef = doc(db, "users", auth.currentUser.uid);
 
-    let profilePicUrl = null;
+    let profilePicUrl = profile.profilePicUrl || "";
     if (profile.profilePic) {
-      // Upload imagine
+      // Upload imagine nouă doar dacă a fost selectată
       const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
       await uploadBytes(storageRef, profile.profilePic);
       profilePicUrl = await getDownloadURL(storageRef);
@@ -119,13 +131,19 @@ function Account() {
       updates.push(
         updateDoc(doc(db, "issues", docu.id), {
           displayName: profile.username,
-          profilePicUrl: profilePicUrl || profile.profilePicUrl || "",
+          profilePicUrl: profilePicUrl,
         })
       );
     });
     await Promise.all(updates);
 
     setPasswordMessage("Datele au fost actualizate!");
+    setProfile((prev) => ({
+      ...prev,
+      profilePic: null,
+      profilePicUrl: profilePicUrl,
+    }));
+    setProfilePicPreview(profilePicUrl);
   };
 
   const handleDeleteAccount = async () => {
@@ -202,6 +220,20 @@ function Account() {
         <div>
           <label>Poza de profil:</label>
           <input name="profilePic" type="file" accept="image/*" onChange={handleChange} />
+        </div>
+        <div style={{ margin: "12px 0" }}>
+          <img
+            src={profilePicPreview || "/default-avatar.png"}
+            alt="preview"
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "2px solid #eee",
+              background: "#eee",
+            }}
+          />
         </div>
         <button type="submit">Salvează modificările</button>
       </form>
