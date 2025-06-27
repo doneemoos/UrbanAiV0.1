@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart, BarElement, CategoryScale, LinearScale } from "chart.js";
-import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, getDoc, deleteDoc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, getDoc, deleteDoc, getDocs, updateDoc } from "firebase/firestore";
 import { getAuth, updatePassword, deleteUser } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config";
@@ -95,13 +95,14 @@ function Account() {
     const storage = getStorage();
     const userRef = doc(db, "users", auth.currentUser.uid);
 
+    let profilePicUrl = null;
     if (profile.profilePic) {
       // Upload imagine
       const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
       await uploadBytes(storageRef, profile.profilePic);
-      const url = await getDownloadURL(storageRef);
+      profilePicUrl = await getDownloadURL(storageRef);
       // Salvează URL-ul în Firestore
-      await setDoc(userRef, { profilePicUrl: url }, { merge: true });
+      await setDoc(userRef, { profilePicUrl }, { merge: true });
     }
 
     // Actualizează și celelalte date ale profilului
@@ -110,6 +111,21 @@ function Account() {
       email: profile.email,
       phone: profile.phone,
     }, { merge: true });
+
+    // --- ACTUALIZEAZĂ TOATE RAPORTĂRILE USERULUI ÎN ISSUES ---
+    const issuesSnap = await getDocs(query(collection(db, "issues"), where("uid", "==", auth.currentUser.uid)));
+    const updates = [];
+    issuesSnap.forEach((docu) => {
+      updates.push(
+        updateDoc(doc(db, "issues", docu.id), {
+          displayName: profile.username,
+          profilePicUrl: profilePicUrl || profile.profilePicUrl || "",
+        })
+      );
+    });
+    await Promise.all(updates);
+
+    setPasswordMessage("Datele au fost actualizate!");
   };
 
   const handleDeleteAccount = async () => {

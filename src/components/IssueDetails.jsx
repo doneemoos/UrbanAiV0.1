@@ -113,7 +113,48 @@ function IssueDetails() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 0" }}>
-      <h2 style={{ marginBottom: 16 }}>{issue.title}</h2>
+      {/* Header cu poza de profil și username */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+        <img
+          src={issue.profilePicUrl || "/default-avatar.png"}
+          alt="avatar"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            objectFit: "cover",
+            border: "2px solid #eee",
+            background: "#eee",
+          }}
+        />
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 18, color: "#222" }}>
+            {issue.displayName || "Utilizator"}
+          </div>
+          <div style={{ color: "#888", fontSize: 13 }}>
+            {issue.created
+              ? new Date(issue.created).toLocaleDateString("ro-RO", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : ""}
+          </div>
+        </div>
+        <span
+          style={{
+            background: statusColors[issue.status] || "#eee",
+            color: "#333",
+            borderRadius: 8,
+            padding: "2px 10px",
+            fontSize: 13,
+            fontWeight: 600,
+            marginLeft: "auto",
+          }}
+        >
+          {issue.status || "Nerezolvat"}
+        </span>
+      </div>
       {/* Galerie de imagini */}
       {allImages.length > 0 && (
         <div style={{ position: "relative", width: "100%", height: 220, marginBottom: 24 }}>
@@ -128,53 +169,52 @@ function IssueDetails() {
               display: "block",
             }}
           />
-          {/* Săgeată stânga */}
+          {/* Săgeți galerie */}
           {allImages.length > 1 && (
-            <button
-              onClick={handlePrev}
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: 10,
-                transform: "translateY(-50%)",
-                background: "rgba(255,255,255,0.7)",
-                border: "none",
-                borderRadius: "50%",
-                width: 36,
-                height: 36,
-                fontSize: 22,
-                cursor: "pointer",
-                zIndex: 2,
-              }}
-              aria-label="Imagine anterioară"
-            >
-              &#8592;
-            </button>
+            <>
+              <button
+                onClick={handlePrev}
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: 10,
+                  transform: "translateY(-50%)",
+                  background: "rgba(255,255,255,0.7)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 36,
+                  height: 36,
+                  fontSize: 22,
+                  cursor: "pointer",
+                  zIndex: 2,
+                }}
+                aria-label="Imagine anterioară"
+              >
+                &#8592;
+              </button>
+              <button
+                onClick={handleNext}
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  right: 10,
+                  transform: "translateY(-50%)",
+                  background: "rgba(255,255,255,0.7)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 36,
+                  height: 36,
+                  fontSize: 22,
+                  cursor: "pointer",
+                  zIndex: 2,
+                }}
+                aria-label="Imagine următoare"
+              >
+                &#8594;
+              </button>
+            </>
           )}
-          {/* Săgeată dreapta */}
-          {allImages.length > 1 && (
-            <button
-              onClick={handleNext}
-              style={{
-                position: "absolute",
-                top: "50%",
-                right: 10,
-                transform: "translateY(-50%)",
-                background: "rgba(255,255,255,0.7)",
-                border: "none",
-                borderRadius: "50%",
-                width: 36,
-                height: 36,
-                fontSize: 22,
-                cursor: "pointer",
-                zIndex: 2,
-              }}
-              aria-label="Imagine următoare"
-            >
-              &#8594;
-            </button>
-          )}
-          {/* Buline pentru galerie */}
+          {/* Buline galerie */}
           {allImages.length > 1 && (
             <div style={{
               position: "absolute",
@@ -200,20 +240,6 @@ function IssueDetails() {
           )}
         </div>
       )}
-      {/* Status */}
-      <span
-        style={{
-          background: statusColors[issue.status] || "#eee",
-          color: "#333",
-          borderRadius: 8,
-          padding: "2px 10px",
-          fontSize: 13,
-          fontWeight: 600,
-          float: "right",
-        }}
-      >
-        {issue.status || "Nerezolvat"}
-      </span>
       {/* Categorie */}
       <div style={{ color: "#1976d2", fontWeight: 600, fontSize: 15, marginBottom: 8 }}>
         {issue.category || "Altele"}
@@ -222,22 +248,11 @@ function IssueDetails() {
       <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 8 }}>
         {issue.title}
       </div>
-      {/* Adresă și dată */}
+      {/* Adresă */}
       <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 12 }}>
         <span style={{ color: "#1976d2", fontSize: 15 }}>
           <span role="img" aria-label="locatie">📍</span>{" "}
           {capitalizeWords(issue.address)}
-        </span>
-        <span style={{ color: "#888", fontSize: 15 }}>
-          <span role="img" aria-label="calendar">📅</span>{" "}
-          Reported on{" "}
-          {issue.created
-            ? new Date(issue.created).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })
-            : ""}
         </span>
       </div>
       <hr />
@@ -270,7 +285,7 @@ function IssueDetails() {
         </button>
       </div>
       {isAdmin && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, marginTop: 16 }}>
           <button
             onClick={handleChangeStatus}
             style={{

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, addDoc, collection } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useNavigate } from "react-router-dom";
 import { initializeApp } from "firebase/app";
@@ -7,7 +7,7 @@ import { firebaseConfig } from "../firebase/config";
 import { getAuth } from "firebase/auth";
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getFirestore();
 const storage = getStorage(app);
 const auth = getAuth();
 
@@ -129,6 +129,17 @@ function ReportIssue() {
         imageUrls.push(url);
       }
 
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      let displayName = user.displayName || user.email;
+      let profilePicUrl = user.photoURL || "/default-avatar.png";
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        displayName = userData.username || displayName;
+        profilePicUrl = userData.profilePicUrl || profilePicUrl;
+      }
+
       await addDoc(collection(db, "issues"), {
         title,
         address,
@@ -138,11 +149,11 @@ function ReportIssue() {
         category,
         images: imageUrls,
         created: new Date().toISOString(),
-        uid: user ? user.uid : null,
+        uid: user.uid,
         upvotes: 0,
         upvotedBy: [],
-        displayName: user.displayName || user.email,
-        profilePicUrl: user.photoURL || "/default-avatar.png",
+        displayName,
+        profilePicUrl,
       });
       navigate("/dashboard");
     } catch (err) {
