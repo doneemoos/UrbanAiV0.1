@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config";
 import { getAuth } from "firebase/auth";
+import defaultProfile from "./img/default-profile.svg";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore();
@@ -132,12 +133,13 @@ function ReportIssue() {
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
       let displayName = user.displayName || user.email;
-      let profilePicUrl = user.photoURL || "/default-avatar.png";
+      let profilePicUrl = user.photoURL || defaultProfile;
 
       if (userSnap.exists()) {
-        const userData = userSnap.data();
-        displayName = userData.username || displayName;
-        profilePicUrl = userData.profilePicUrl || profilePicUrl;
+        const data = userSnap.data();
+        if (data.username) displayName = data.username;
+        // Folosește defaultProfile dacă nu există profilePicUrl
+        profilePicUrl = data.profilePicUrl ? data.profilePicUrl : defaultProfile;
       }
 
       await addDoc(collection(db, "issues"), {

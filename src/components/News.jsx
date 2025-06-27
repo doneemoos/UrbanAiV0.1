@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { getFirestore, collection, onSnapshot, addDoc } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, updateDoc, arrayUnion, arrayRemove, doc, deleteDoc, query, orderBy, addDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config.jsx";
 import { useNavigate } from "react-router-dom";
 import { getAuth } from "firebase/auth";
-import { deleteDoc, doc, updateDoc } from "firebase/firestore";
+import defaultProfile from "./img/default-profile.svg";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -15,6 +15,20 @@ const statusColors = {
   "Nerezolvat": "#ef9a9a",
 };
 
+const categories = [
+  "Drumuri",
+  "Iluminat",
+  "Vandalism",
+  "Salubritate",
+  "Deșeuri",
+  "Pericole",
+  "Parcări",
+  "Transport",
+  "Apă și canalizare",
+  "Zgomot",
+  "Altele",
+];
+
 function IssueCard({ issue }) {
   const navigate = useNavigate();
   const user = getAuth().currentUser;
@@ -22,15 +36,79 @@ function IssueCard({ issue }) {
 
   // Status
   const status = issue.status || "Nerezolvat";
-
-  // Data
   const latestDate = issue.created;
-
-  // Upvotes
   const totalUpvotes = issue.upvotes || 0;
-
-  // Imagine
   const allImages = (issue.images || []).filter(Boolean);
+
+  // Upvote state
+  const [hasUpvoted, setHasUpvoted] = useState(
+    user && issue.upvotedBy && issue.upvotedBy.includes(user.uid)
+  );
+  const [loading, setLoading] = useState(false);
+
+  // Comentarii
+  const [showCommentInput, setShowCommentInput] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
+
+  useEffect(() => {
+    setHasUpvoted(user && issue.upvotedBy && issue.upvotedBy.includes(user.uid));
+    // eslint-disable-next-line
+  }, [user, issue.upvotedBy]);
+
+  // Funcție pentru upvote
+  const handleUpvote = async (e) => {
+    e.stopPropagation();
+    if (!user) return alert("Trebuie să fii logat pentru a da upvote!");
+    setLoading(true);
+    const issueRef = doc(db, "issues", issue.id);
+    if (!hasUpvoted) {
+      await updateDoc(issueRef, {
+        upvotes: (issue.upvotes || 0) + 1,
+        upvotedBy: arrayUnion(user.uid),
+      });
+      setHasUpvoted(true);
+
+      // === Trimite notificare la utilizatorul care a creat postarea ===
+      try {
+        // Nu trimite notificare dacă userul dă upvote la propria postare
+        if (issue.uid && issue.uid !== user.uid) {
+          // Ia username și poza din Firestore
+          let actorUsername = user.displayName || user.email;
+          let actorProfilePicUrl = user.photoURL || defaultProfile;
+          try {
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              const data = userSnap.data();
+              if (data.username) actorUsername = data.username;
+              if (data.profilePicUrl) actorProfilePicUrl = data.profilePicUrl;
+            }
+          } catch {}
+          await addDoc(collection(db, "notifications"), {
+            type: "upvote",
+            targetUid: issue.uid,
+            actorUid: user.uid,
+            actorUsername,
+            actorProfilePicUrl,
+            issueId: issue.id,
+            created: serverTimestamp(),
+          });
+        }
+      } catch (err) {
+        console.error("Eroare la trimiterea notificării:", err);
+      }
+      // === Sfârșit notificare ===
+
+    } else {
+      await updateDoc(issueRef, {
+        upvotes: (issue.upvotes || 1) - 1,
+        upvotedBy: arrayRemove(user.uid),
+      });
+      setHasUpvoted(false);
+    }
+    setLoading(false);
+  };
 
   // Funcție pentru ștergere
   const handleDelete = async (e) => {
@@ -48,9 +126,54 @@ function IssueCard({ issue }) {
     await updateDoc(doc(db, "issues", issue.id), { status: nextStatus });
   };
 
+  // Adaugă comentariu în Firestore cu username real din profil
+  const handleAddComment = async (e) => {
+    e.stopPropagation();
+    if (!user) return alert("Trebuie să fii logat pentru a comenta!");
+    if (!commentText.trim()) return;
+    setCommentLoading(true);
+
+    // Ia username-ul și poza reală din Firestore
+    let username = user.displayName || user.email;
+    let profilePicUrl = user.photoURL || defaultProfile;
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        if (data.username) username = data.username;
+        if (data.profilePicUrl) profilePicUrl = data.profilePicUrl;
+      }
+    } catch {}
+
+    await addDoc(collection(db, "issues", issue.id, "comments"), {
+      text: commentText,
+      created: serverTimestamp(),
+      uid: user.uid,
+      displayName: username,
+      profilePicUrl: profilePicUrl,
+    });
+
+    // Adaugă notificare în Firestore
+    await addDoc(collection(db, "notifications"), {
+      type: "comment",
+      targetUid: issue.uid,
+      actorUid: user.uid,
+      actorUsername: username,
+      actorProfilePicUrl: profilePicUrl,
+      commentText: commentText,
+      issueId: issue.id,
+      created: serverTimestamp(),
+    });
+
+    setCommentText("");
+    setCommentLoading(false);
+    setShowCommentInput(false);
+  };
+
   return (
     <div
-      onClick={() => navigate(`/issue/${issue.id}`)}
+      // Elimină onClick de pe container ca să nu trimită la issuedetails când folosești inputul
       style={{
         background: "#fff",
         borderRadius: 16,
@@ -70,9 +193,9 @@ function IssueCard({ issue }) {
       }}
     >
       {/* Imagine de profil */}
-      <div style={{ flexShrink: 0 }}>
+      <div style={{ flexShrink: 0 }} onClick={() => navigate(`/issue/${issue.id}`)}>
         <img
-          src={issue.profilePicUrl || "/default-avatar.png"}
+          src={issue.profilePicUrl || defaultProfile}
           alt="avatar"
           style={{
             width: 48,
@@ -87,7 +210,7 @@ function IssueCard({ issue }) {
       {/* Conținut */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Header: nume, status, dată */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }} onClick={() => navigate(`/issue/${issue.id}`)}>
           <span style={{ fontWeight: 700, color: "#222" }}>
             {issue.displayName || "Utilizator"}
           </span>
@@ -109,15 +232,15 @@ function IssueCard({ issue }) {
           </span>
         </div>
         {/* Titlu și descriere */}
-        <div style={{ margin: "6px 0 8px 0", fontSize: 17, color: "#222", fontWeight: 500 }}>
+        <div style={{ margin: "6px 0 8px 0", fontSize: 17, color: "#222", fontWeight: 500 }} onClick={() => navigate(`/issue/${issue.id}`)}>
           {issue.title}
         </div>
-        <div style={{ color: "#444", fontSize: 15, marginBottom: 8, whiteSpace: "pre-line" }}>
+        <div style={{ color: "#444", fontSize: 15, marginBottom: 8, whiteSpace: "pre-line" }} onClick={() => navigate(`/issue/${issue.id}`)}>
           {issue.desc}
         </div>
         {/* Imagine atașată */}
         {allImages.length > 0 && (
-          <div style={{ margin: "10px 0", borderRadius: 16, overflow: "hidden", border: "1px solid #eee" }}>
+          <div style={{ margin: "10px 0", borderRadius: 16, overflow: "hidden", border: "1px solid #eee" }} onClick={() => navigate(`/issue/${issue.id}`)}>
             <img
               src={allImages[0]}
               alt="cover"
@@ -131,7 +254,7 @@ function IssueCard({ issue }) {
           </div>
         )}
         {/* Adresă și categorie */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }} onClick={() => navigate(`/issue/${issue.id}`)}>
           <span style={{ color: "#888", fontSize: 14 }}>
             {issue.address
               ? issue.address
@@ -144,14 +267,49 @@ function IssueCard({ issue }) {
             {issue.category || "Altele"}
           </span>
         </div>
-        {/* Upvotes și admin controls */}
+        {/* Upvotes, comentarii și admin controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span role="img" aria-label="upvote" style={{ fontSize: 18 }}>
-              ⬆️
-            </span>
-            <span style={{ fontWeight: 600, color: "#222" }}>{totalUpvotes}</span>
-          </div>
+          <button
+            style={{
+              background: hasUpvoted ? "#1976d2" : "#f5f5f5",
+              color: hasUpvoted ? "#fff" : "#222",
+              border: "none",
+              borderRadius: 20,
+              padding: "6px 18px",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1,
+            }}
+            onClick={handleUpvote}
+            disabled={loading}
+            onMouseDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+          >
+            <span role="img" aria-label="upvote">⬆️</span> Upvote ({issue.upvotes || 0})
+          </button>
+          <button
+            style={{
+              background: "#f5f5f5",
+              color: "#222",
+              border: "none",
+              borderRadius: 20,
+              padding: "6px 18px",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+            }}
+            onClick={e => {
+              e.stopPropagation();
+              setShowCommentInput((v) => !v);
+            }}
+          >
+            <span role="img" aria-label="comentarii">💬</span> Comentarii
+          </button>
           {isAdmin && (
             <div style={{ display: "flex", gap: 8 }}>
               <button
@@ -187,6 +345,48 @@ function IssueCard({ issue }) {
             </div>
           )}
         </div>
+        {/* Input comentariu */}
+        {showCommentInput && (
+          <form
+            onClick={e => e.stopPropagation()}
+            onSubmit={e => {
+              e.preventDefault();
+              handleAddComment(e);
+            }}
+            style={{ marginTop: 12, display: "flex", gap: 8 }}
+          >
+            <input
+              type="text"
+              placeholder="Adaugă un comentariu..."
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              style={{
+                flex: 1,
+                padding: "8px 12px",
+                borderRadius: 20,
+                border: "1px solid #ccc",
+                fontSize: 15,
+              }}
+              disabled={commentLoading}
+            />
+            <button
+              type="submit"
+              style={{
+                background: "#1976d2",
+                color: "#fff",
+                border: "none",
+                borderRadius: 20,
+                padding: "8px 18px",
+                fontWeight: 600,
+                cursor: commentLoading ? "not-allowed" : "pointer",
+                opacity: commentLoading ? 0.7 : 1,
+              }}
+              disabled={commentLoading}
+            >
+              Postează
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -194,25 +394,130 @@ function IssueCard({ issue }) {
 
 function News() {
   const [issues, setIssues] = useState([]);
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "issues"), (snap) => {
+    const q = query(collection(db, "issues"), orderBy("created", sortOrder));
+    const unsub = onSnapshot(q, (snap) => {
       setIssues(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
     return () => unsub();
-  }, []);
+  }, [sortOrder]);
 
-  // Nu mai grupăm, fiecare raportare este o postare separată
+  // Filtrare după categorie
+  let filteredIssues = selectedCategory
+    ? issues.filter((issue) => (issue.category || "Other") === selectedCategory)
+    : issues;
+
+  // Filtrare după search (titlu, descriere, adresă, categorie)
+  if (search.trim()) {
+    const s = search.trim().toLowerCase();
+    filteredIssues = filteredIssues.filter((issue) =>
+      (issue.title || "").toLowerCase().includes(s) ||
+      (issue.desc || "").toLowerCase().includes(s) ||
+      (issue.address || "").toLowerCase().includes(s) ||
+      (issue.category || "").toLowerCase().includes(s)
+    );
+  }
+
   return (
     <div
       style={{
-        maxWidth: 800,
+        maxWidth: 900,
         margin: "0 auto",
         padding: "2rem 0",
       }}
     >
-      <h2 style={{ marginBottom: 24 }}>Community Issues</h2>
-      {issues.map((issue) => (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <h2 style={{ margin: 0 }}>Community Issues</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+            style={{
+              background: "#fff",
+              border: "1px solid #e6ecf0",
+              borderRadius: 24,
+              padding: "8px 18px",
+              fontWeight: 600,
+              fontSize: 15,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              boxShadow: "0 1px 2px #0001",
+            }}
+            title="Sortează"
+          >
+            {sortOrder === "desc" ? "⬇️ Cele mai noi" : "⬆️ Cele mai vechi"}
+          </button>
+        </div>
+      </div>
+      {/* Searchbar */}
+      <div style={{ marginBottom: 18 }}>
+        <input
+          type="text"
+          placeholder="Caută după titlu, descriere, locație sau categorie..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px 16px",
+            borderRadius: 20,
+            border: "1px solid #e6ecf0",
+            fontSize: 15,
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
+      {/* Butoane de filtrare categorie */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+            style={{
+              background: selectedCategory === cat ? "#1976d2" : "#f5f6fa",
+              color: selectedCategory === cat ? "#fff" : "#222",
+              border: "none",
+              borderRadius: 16,
+              padding: "4px 10px",
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: "pointer",
+              boxShadow: selectedCategory === cat ? "0 2px 8px #1976d222" : "none",
+              transition: "all 0.15s",
+              minWidth: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {cat}
+          </button>
+        ))}
+        {selectedCategory && (
+          <button
+            onClick={() => setSelectedCategory(null)}
+            style={{
+              background: "#eee",
+              color: "#222",
+              border: "none",
+              borderRadius: 16,
+              padding: "4px 10px",
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: "pointer",
+              marginLeft: 8,
+              minWidth: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Resetează filtrul
+          </button>
+        )}
+      </div>
+      {filteredIssues.map((issue) => (
         <IssueCard key={issue.id} issue={issue} />
       ))}
     </div>

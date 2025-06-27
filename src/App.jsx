@@ -10,8 +10,8 @@ import ReportIssue from './components/ReportIssue.jsx';
 import { AuthProvider } from './AuthContext';
 import Account from './components/Account.jsx';
 import News from './components/News.jsx';
-import Events from './components/Events.jsx';
 import IssueDetails from './components/IssueDetails.jsx';
+import Notifications from './components/Notifications.jsx';
 import './App.css';
 
 function AppWrapper() {
@@ -38,8 +38,8 @@ function AppWrapper() {
         <Route path="/report" element={<ReportIssue />} />
         <Route path="/account" element={<Account />} />
         <Route path="/news" element={<News />} />
-        <Route path="/events" element={<Events />} />
         <Route path="/issue/:id" element={<IssueDetails />} />
+        <Route path="/notifications" element={<Notifications />} />
       </Routes>
     </div>
   );

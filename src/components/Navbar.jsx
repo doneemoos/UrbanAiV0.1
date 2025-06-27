@@ -53,9 +53,7 @@ function Navbar() {
         <li>
           <Link to="/news">News</Link>
         </li>
-        <li>
-          <Link to="/events">Events</Link>
-        </li>
+        
       </ul>
       <nav className="navbar">
         <ul style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -63,6 +61,9 @@ function Navbar() {
             <>
               <li>
                 <Link to="/dashboard">Dashboard</Link>
+              </li>
+              <li>
+                <Link to="/notifications">Notificări</Link>
               </li>
               <li>
                 <Link to="/account">Account</Link>

@@ -137,12 +137,13 @@ export default function AccountWhite() {
       }
       // Profile pic
       const userRef = doc(db,"users",user.uid);
+      let profilePicUrl = null;
       if (profile.profilePic) {
         const storage = getStorage();
         const storageRef = ref(storage,`profilePics/${user.uid}`);
         await uploadBytes(storageRef,profile.profilePic);
-        const url = await getDownloadURL(storageRef);
-        await setDoc(userRef,{profilePicUrl:url},{merge:true});
+        profilePicUrl = await getDownloadURL(storageRef);
+        await setDoc(userRef,{profilePicUrl},{merge:true});
       }
       // Other fields
       await setDoc(userRef,{
@@ -150,6 +151,46 @@ export default function AccountWhite() {
         email:profile.email,
         phone:profile.phone,
       },{merge:true});
+
+      // --- ACTUALIZEAZĂ TOATE COMENTARIILE USERULUI ---
+      // Obține poza actualizată (nouă sau veche)
+      let finalProfilePicUrl = profilePicUrl;
+      if (!finalProfilePicUrl) {
+        const snap = await getDoc(userRef);
+        finalProfilePicUrl = snap.exists() && snap.data().profilePicUrl ? snap.data().profilePicUrl : "";
+      }
+      // Găsește toate issues
+      const issuesSnap = await getDocs(collection(db, "issues"));
+      for (const issueDoc of issuesSnap.docs) {
+        const commentsCol = collection(db, "issues", issueDoc.id, "comments");
+        const commentsSnap = await getDocs(commentsCol);
+        for (const commentDoc of commentsSnap.docs) {
+          const comment = commentDoc.data();
+          if (comment.uid === user.uid) {
+            await setDoc(
+              doc(db, "issues", issueDoc.id, "comments", commentDoc.id),
+              {
+                displayName: profile.username,
+                profilePicUrl: finalProfilePicUrl || "",
+              },
+              { merge: true }
+            );
+          }
+        }
+      }
+
+      // --- ACTUALIZEAZĂ TOATE POSTĂRILE USERULUI ---
+      const userIssuesSnap = await getDocs(query(collection(db, "issues"), where("uid", "==", user.uid)));
+      for (const issueDoc of userIssuesSnap.docs) {
+        await setDoc(
+          doc(db, "issues", issueDoc.id),
+          {
+            displayName: profile.username,
+            profilePicUrl: finalProfilePicUrl || "",
+          },
+          { merge: true }
+        );
+      }
     } catch(err) {
       setPasswordMessage("Eroare: " + err.message);
     }
