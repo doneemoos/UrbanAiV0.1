@@ -32,7 +32,7 @@ function Signup() {
         createdAt: new Date().toISOString(),
       });
       login();
-      navigate('/dashboard');
+      navigate('/news');
     } catch (err) {
       setError(err.message);
     }

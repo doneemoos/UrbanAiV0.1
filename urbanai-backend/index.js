@@ -18,37 +18,13 @@ const complaints = [];
 app.post("/classify", async (req, res) => {
   try {
     const { text } = req.body;
-
-    const keywordMap = [
-      { keywords: ["zgomot", "galagie", "larmă"], categorie: "Zgomot" },
-      { keywords: ["lumina", "iluminat", "bec", "lampă"], categorie: "Iluminat" },
-      { keywords: ["drum", "stradă", "gropi", "asfalt"], categorie: "Drumuri" },
-      // ...poți adăuga și alte reguli simple...
-    ];
-
-    const lower = text.toLowerCase();
-    for (const rule of keywordMap) {
-      if (rule.keywords.some(k => lower.includes(k))) {
-        // Salvezi cererea în array
-        complaints.push({
-          text,
-          categorie: rule.categorie,
-          timestamp: new Date().toISOString()
-        });
-        return res.json({ categorie: rule.categorie });
-      }
-    }
-
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "user",
           content:
-            `Încadrează textul de mai jos într-una din categoriile: Iluminat, Drumuri, Pericole, Salubritate, Transport, Deșeuri, Parcări, Apă și canalizare, Vandalism, Zgomot, Altele.
-Dacă textul conține cuvinte sau expresii legate clar de una dintre categorii, alege acea categorie.
-Returnează DOAR categoria, fără alte explicații!
-Text: "${text}"`
+            `Încadrează textul de mai jos într-una din categoriile: Iluminat, Drumuri, Pericole (de exemplu copac rupt, copac cazut, cladiri care mai putin si se darama), Salubritate, Transport, Deșeuri, Parcări, Apă și canalizare, Vandalism, Zgomot, Altele. Returneaza categoria Altele DOAR daca e absolut sigur ca textul nu reprezinta una dintre celelalte categori.Returnează DOAR categoria, fără alte explicații! Text: "${text}"`
         }
       ],
       max_tokens: 10,

@@ -31,14 +31,11 @@ function IssueDetails() {
   const [loading, setLoading] = useState(false);
   const [hasUpvoted, setHasUpvoted] = useState(false);
   const [currentImg, setCurrentImg] = useState(0);
-  const [allImages, setAllImages] = useState([]);
-  const [groupedIssues, setGroupedIssues] = useState([]);
   const user = getAuth().currentUser;
   const isAdmin = user && user.email === "admin@admin.com";
 
   useEffect(() => {
-    const fetchIssueAndGroup = async () => {
-      // 1. Ia issue-ul principal
+    const fetchIssue = async () => {
       const docRef = doc(db, "issues", id);
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) return;
@@ -49,33 +46,9 @@ function IssueDetails() {
       } else {
         setHasUpvoted(false);
       }
-
-      // 2. Găsește toate problemele cu aceeași adresă și categorie
-      const allIssuesSnap = await getDocs(collection(db, "issues"));
-      const addressKey = (data.address || "").trim().toLowerCase();
-      const categoryKey = (data.category || "Altele").trim().toLowerCase();
-      const groupedIssues = allIssuesSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter(
-          (i) =>
-            (i.address || "").trim().toLowerCase() === addressKey &&
-            (i.category || "Altele").trim().toLowerCase() === categoryKey
-        );
-
-      setGroupedIssues(groupedIssues);
-
-      // 3. Adună toate pozele din grup (fără duplicate)
-      const images = [
-        ...new Set(
-          groupedIssues
-            .flatMap((i) => i.images || [])
-            .filter((img) => !!img)
-        ),
-      ];
-      setAllImages(images);
       setCurrentImg(0);
     };
-    fetchIssueAndGroup();
+    fetchIssue();
     // eslint-disable-next-line
   }, [id, user]);
 
@@ -110,6 +83,7 @@ function IssueDetails() {
   };
 
   // Galerie: funcții pentru navigare
+  const allImages = (issue && issue.images ? issue.images.filter(Boolean) : []);
   const handlePrev = () => {
     if (!allImages.length) return;
     setCurrentImg((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
@@ -119,24 +93,19 @@ function IssueDetails() {
     setCurrentImg((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
   };
 
-  // Șterge toate problemele din grup
-  const handleDeleteGroup = async () => {
-    if (!window.confirm("Sigur vrei să ștergi toate raportările din acest box?")) return;
-    for (const issue of groupedIssues) {
-      await deleteDoc(doc(db, "issues", issue.id));
-    }
+  // Șterge raportarea curentă
+  const handleDelete = async () => {
+    if (!window.confirm("Sigur vrei să ștergi această raportare?")) return;
+    await deleteDoc(doc(db, "issues", id));
     window.location.href = "/news";
   };
 
-  // Schimbă statusul la toate problemele din grup
+  // Schimbă statusul la raportarea curentă
   const handleChangeStatus = async () => {
     const statuses = ["Nerezolvat", "In lucru", "Rezolvat"];
     const currentStatus = issue.status || "Nerezolvat";
     const nextStatus = statuses[(statuses.indexOf(currentStatus) + 1) % statuses.length];
-    for (const i of groupedIssues) {
-      await updateDoc(doc(db, "issues", i.id), { status: nextStatus });
-    }
-    // Refetch
+    await updateDoc(doc(db, "issues", id), { status: nextStatus });
     window.location.reload();
   };
 
@@ -145,7 +114,7 @@ function IssueDetails() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 0" }}>
       <h2 style={{ marginBottom: 16 }}>{issue.title}</h2>
-      {/* Galerie de imagini din toate problemele grupate */}
+      {/* Galerie de imagini */}
       {allImages.length > 0 && (
         <div style={{ position: "relative", width: "100%", height: 220, marginBottom: 24 }}>
           <img
@@ -318,7 +287,7 @@ function IssueDetails() {
             Schimbă status
           </button>
           <button
-            onClick={handleDeleteGroup}
+            onClick={handleDelete}
             style={{
               background: "#e53935",
               color: "#fff",
@@ -328,7 +297,7 @@ function IssueDetails() {
               fontWeight: 600,
               cursor: "pointer",
             }}
-            title="Șterge grup"
+            title="Șterge"
           >
             Șterge
           </button>

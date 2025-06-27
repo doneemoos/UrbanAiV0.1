@@ -30,37 +30,27 @@ function getCircleOptions(issue, allIssues) {
       Math.abs(i.lng - issue.lng) < 0.0001
   ).length;
 
+  const baseOptions = {
+    fillOpacity: 0.9,
+    strokeOpacity: 0.9, // la fel ca fill
+    radius: 15,
+    strokeWeight: 1,
+    zIndex: 2,
+  };
+
+  let color = "#00ff00";
   if (count === 1) {
-    return {
-      fillColor: "#00ff00",
-      fillOpacity: 0.2,
-      strokeColor: "#00ff00",
-      strokeOpacity: 0.5,
-      radius: 60
-    };
+    color = "#00ff00";
   } else if (count >= 2 && count <= 5) {
-    return {
-      fillColor: "#ffff00",
-      fillOpacity: 0.25,
-      strokeColor: "#ffff00",
-      strokeOpacity: 0.6,
-      radius: 90
-    };
+    color = "#ffff00";
   } else if (count >= 6) {
-    return {
-      fillColor: "#ff0000",
-      fillOpacity: 0.05,
-      strokeColor: "#ff0000",
-      strokeOpacity: 0.5,
-      radius: 120
-    };
+    color = "#ff0000";
   }
+
   return {
-    fillColor: "#00ff00",
-    fillOpacity: 0.2,
-    strokeColor: "#00ff00",
-    strokeOpacity: 0.5,
-    radius: 60
+    ...baseOptions,
+    fillColor: color,
+    strokeColor: color, // aceeași culoare ca fill
   };
 }
 
@@ -99,19 +89,15 @@ function GoogleMapView({ markers = [] }) {
       options={mapOptions}
     >
       {markers.map((m, idx) => (
-        <React.Fragment key={idx}>
-          <Circle
-            center={{ lat: m.lat, lng: m.lng }}
-            options={getCircleOptions(m, markers)}
-          />
-          <Marker
-            position={{ lat: m.lat, lng: m.lng }}
-            icon={{
-              url: getMarkerColor(m, markers),
-            }}
-            onClick={() => setSelectedCoords({ lat: m.lat, lng: m.lng })}
-          />
-        </React.Fragment>
+        <Circle
+          key={idx}
+          center={{ lat: m.lat, lng: m.lng }}
+          options={{
+            ...getCircleOptions(m, markers),
+            clickable: true,
+          }}
+          onClick={() => setSelectedCoords({ lat: m.lat, lng: m.lng })}
+        />
       ))}
       {selectedCoords && (
         <InfoWindow

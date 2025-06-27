@@ -141,6 +141,8 @@ function ReportIssue() {
         uid: user ? user.uid : null,
         upvotes: 0,
         upvotedBy: [],
+        displayName: user.displayName || user.email,
+        profilePicUrl: user.photoURL || "/default-avatar.png",
       });
       navigate("/dashboard");
     } catch (err) {

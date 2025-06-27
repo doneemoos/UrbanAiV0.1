@@ -9,7 +9,6 @@ function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState("");
   const navigate = useNavigate();
-
   const { login } = useAuth();
 
   const handleLogin = (e) => {
@@ -17,9 +16,8 @@ function Login() {
     setError("");
     signInWithEmailAndPassword(auth, email, password)
       .then(() => {
-        // După autentificare cu succes:
         login();
-        navigate('/dashboard');
+        navigate('/news');
       })
       .catch((error) => {
         setError("Email sau parolă incorecte!");

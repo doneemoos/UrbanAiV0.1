@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getFirestore, collection, onSnapshot } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config.jsx";
 import { useNavigate } from "react-router-dom";
@@ -15,229 +15,178 @@ const statusColors = {
   "Nerezolvat": "#ef9a9a",
 };
 
-function groupIssues(issues) {
-  // Cheia este adresa (fără spații la început/sfârșit, lowercase) + categorie (lowercase)
-  const groups = {};
-  issues.forEach((issue) => {
-    const addressKey = (issue.address || "").trim().toLowerCase();
-    const categoryKey = (issue.category || "Altele").trim().toLowerCase();
-    const key = addressKey + "|" + categoryKey;
-    if (!groups[key]) {
-      groups[key] = [];
-    }
-    groups[key].push(issue);
-  });
-  // Returnează array de array-uri (fiecare grup)
-  return Object.values(groups);
-}
-
-function IssueCard({ issues }) {
+function IssueCard({ issue }) {
   const navigate = useNavigate();
   const user = getAuth().currentUser;
   const isAdmin = user && user.email === "admin@admin.com";
-  const main = issues[0];
 
-  // Adună toate imaginile din grup (fără duplicate)
-  const allImages = [
-    ...new Set(
-      issues
-        .flatMap((issue) => issue.images || [])
-        .filter((img) => !!img)
-    ),
-  ];
+  // Status
+  const status = issue.status || "Nerezolvat";
 
-  // Status: dacă toate sunt rezolvate => Rezolvat, dacă toate sunt nerezolvate => Nerezolvat, altfel In lucru
-  let status = "In lucru";
-  if (issues.every((i) => (i.status || "Nerezolvat") === "Rezolvat")) status = "Rezolvat";
-  else if (issues.every((i) => (i.status || "Nerezolvat") === "Nerezolvat")) status = "Nerezolvat";
+  // Data
+  const latestDate = issue.created;
 
-  // Data: cea mai recentă
-  const latestDate = issues
-    .map((i) => i.created)
-    .filter(Boolean)
-    .sort()
-    .reverse()[0];
+  // Upvotes
+  const totalUpvotes = issue.upvotes || 0;
 
-  // Upvotes: suma tuturor upvotes din grup
-  const totalUpvotes = issues.reduce((acc, i) => acc + (i.upvotes || 0), 0);
+  // Imagine
+  const allImages = (issue.images || []).filter(Boolean);
 
-  // Descriere: concatenează titlurile problemelor din grup
-  const titles = issues.map((i) => i.title).join(", ");
-
-  // Funcție pentru ștergere toate problemele din grup
-  const handleDeleteGroup = async (e) => {
+  // Funcție pentru ștergere
+  const handleDelete = async (e) => {
     e.stopPropagation();
-    if (!window.confirm("Sigur vrei să ștergi toate raportările din acest box?")) return;
-    for (const issue of issues) {
-      await deleteDoc(doc(db, "issues", issue.id));
-    }
+    if (!window.confirm("Sigur vrei să ștergi această raportare?")) return;
+    await deleteDoc(doc(db, "issues", issue.id));
   };
 
   // Funcție pentru schimbare status (ciclare)
   const handleChangeStatus = async (e) => {
     e.stopPropagation();
-    // Statusurile posibile
     const statuses = ["Nerezolvat", "In lucru", "Rezolvat"];
-    // Statusul actual (majoritar sau primul)
-    const currentStatus = main.status || "Nerezolvat";
+    const currentStatus = issue.status || "Nerezolvat";
     const nextStatus = statuses[(statuses.indexOf(currentStatus) + 1) % statuses.length];
-    // Update pentru toate problemele din grup
-    for (const issue of issues) {
-      await updateDoc(doc(db, "issues", issue.id), { status: nextStatus });
-    }
+    await updateDoc(doc(db, "issues", issue.id), { status: nextStatus });
   };
 
   return (
     <div
-      onClick={() => navigate(`/issue/${main.id}`)}
+      onClick={() => navigate(`/issue/${issue.id}`)}
       style={{
         background: "#fff",
         borderRadius: 16,
-        boxShadow: "0 2px 8px #0001",
+        border: "1px solid #e6ecf0",
         margin: "1.5rem 0",
         overflow: "hidden",
         display: "flex",
-        flexDirection: "column",
+        flexDirection: "row",
         cursor: "pointer",
         transition: "box-shadow 0.2s",
         position: "relative",
+        boxShadow: "0 1px 2px #0001",
+        padding: "18px 18px 12px 18px",
+        color: "#222",
+        gap: 16,
+        maxWidth: 650,
       }}
     >
-      {/* Imagine */}
-      {allImages.length > 0 && (
+      {/* Imagine de profil */}
+      <div style={{ flexShrink: 0 }}>
         <img
-          src={allImages[0]}
-          alt="cover"
+          src={issue.profilePicUrl || "/default-avatar.png"}
+          alt="avatar"
           style={{
-            width: "100%",
-            height: 180,
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
             objectFit: "cover",
+            border: "2px solid #eee",
+            background: "#eee",
           }}
         />
-      )}
-      <div style={{ padding: "1.2rem", position: "relative" }}>
-        {/* Categorie */}
-        <div
-          style={{
-            color: "#1976d2",
-            fontWeight: 600,
-            fontSize: 14,
-            marginBottom: 4,
-          }}
-        >
-          {main.category || "Altele"}
-        </div>
-        {/* Titlu */}
-        <div
-          style={{
-            fontWeight: 700,
-            fontSize: 20,
-            marginBottom: 4,
-          }}
-        >
-          {titles}
-        </div>
-        {/* Descriere */}
-        <div
-          style={{
-            color: "#555",
-            fontSize: 15,
-            marginBottom: 8,
-          }}
-        >
-          {main.desc}
-        </div>
-        {/* Adresă */}
-        <div
-          style={{
-            color: "#888",
-            fontSize: 14,
-            marginBottom: 8,
-          }}
-        >
-          {main.address
-            ? main.address
-                .split(" ")
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(" ")
-            : ""}
-        </div>
-        {/* Status + Data */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
+      </div>
+      {/* Conținut */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Header: nume, status, dată */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontWeight: 700, color: "#222" }}>
+            {issue.displayName || "Utilizator"}
+          </span>
+          <span style={{ color: "#888", fontSize: 13 }}>
+            · {latestDate ? new Date(latestDate).toLocaleDateString("ro-RO", { month: "short", day: "numeric" }) : ""}
+          </span>
           <span
             style={{
               background: statusColors[status] || "#eee",
-              color: "#333",
+              color: "#222",
               borderRadius: 8,
               padding: "2px 10px",
-              fontSize: 13,
-              fontWeight: 600,
+              fontSize: 12,
+              fontWeight: 700,
+              marginLeft: 8,
             }}
           >
             {status}
           </span>
-          <span
-            style={{
-              color: "#888",
-              fontSize: 13,
-            }}
-          >
-            {latestDate
-              ? new Date(latestDate).toLocaleDateString("ro-RO", {
-                  month: "short",
-                  day: "numeric",
-                })
-              : ""}
-          </span>
         </div>
-        {/* Upvotes */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span role="img" aria-label="upvote">
-            ⬆️
-          </span>
-          <span>{totalUpvotes}</span>
+        {/* Titlu și descriere */}
+        <div style={{ margin: "6px 0 8px 0", fontSize: 17, color: "#222", fontWeight: 500 }}>
+          {issue.title}
         </div>
-        {/* Admin controls */}
-        {isAdmin && (
-          <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 8 }}>
-            <button
-              onClick={handleChangeStatus}
+        <div style={{ color: "#444", fontSize: 15, marginBottom: 8, whiteSpace: "pre-line" }}>
+          {issue.desc}
+        </div>
+        {/* Imagine atașată */}
+        {allImages.length > 0 && (
+          <div style={{ margin: "10px 0", borderRadius: 16, overflow: "hidden", border: "1px solid #eee" }}>
+            <img
+              src={allImages[0]}
+              alt="cover"
               style={{
-                background: "#1976d2",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "4px 10px",
-                fontWeight: 600,
-                cursor: "pointer",
+                width: "100%",
+                maxHeight: 320,
+                objectFit: "cover",
+                display: "block",
               }}
-              title="Schimbă status"
-            >
-              Schimbă status
-            </button>
-            <button
-              onClick={handleDeleteGroup}
-              style={{
-                background: "#e53935",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "4px 10px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-              title="Șterge grup"
-            >
-              Șterge
-            </button>
+            />
           </div>
         )}
+        {/* Adresă și categorie */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+          <span style={{ color: "#888", fontSize: 14 }}>
+            {issue.address
+              ? issue.address
+                  .split(" ")
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(" ")
+              : ""}
+          </span>
+          <span style={{ color: "#1976d2", fontWeight: 600, fontSize: 13 }}>
+            {issue.category || "Altele"}
+          </span>
+        </div>
+        {/* Upvotes și admin controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span role="img" aria-label="upvote" style={{ fontSize: 18 }}>
+              ⬆️
+            </span>
+            <span style={{ fontWeight: 600, color: "#222" }}>{totalUpvotes}</span>
+          </div>
+          {isAdmin && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleChangeStatus}
+                style={{
+                  background: "#1976d2",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "4px 10px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                title="Schimbă status"
+              >
+                Schimbă status
+              </button>
+              <button
+                onClick={handleDelete}
+                style={{
+                  background: "#e53935",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "4px 10px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                title="Șterge"
+              >
+                Șterge
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -253,9 +202,7 @@ function News() {
     return () => unsub();
   }, []);
 
-  // Grupează problemele după adresă și categorie
-  const grouped = groupIssues(issues);
-
+  // Nu mai grupăm, fiecare raportare este o postare separată
   return (
     <div
       style={{
@@ -265,8 +212,8 @@ function News() {
       }}
     >
       <h2 style={{ marginBottom: 24 }}>Community Issues</h2>
-      {grouped.map((group, idx) => (
-        <IssueCard key={group[0].id + idx} issues={group} />
+      {issues.map((issue) => (
+        <IssueCard key={issue.id} issue={issue} />
       ))}
     </div>
   );
