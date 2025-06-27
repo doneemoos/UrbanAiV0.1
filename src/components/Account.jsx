@@ -1,272 +1,225 @@
+// src/components/AccountWhite.jsx
 import React, { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart, BarElement, CategoryScale, LinearScale } from "chart.js";
-import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, getDoc, deleteDoc, getDocs, updateDoc } from "firebase/firestore";
-import { getAuth, updatePassword, deleteUser } from "firebase/auth";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  setDoc,
+  getDoc,
+  deleteDoc,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import {
+  getAuth,
+  updatePassword,
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+} from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { firebaseConfig } from "../firebase/config";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useNavigate } from "react-router-dom";
+
+// Register Chart.js components
 Chart.register(BarElement, CategoryScale, LinearScale);
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-const days = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"];
+// Romanian days
+const days = ["Duminică","Luni","Marți","Miercuri","Joi","Vineri","Sâmbătă"];
 
-function Account() {
-  const [profile, setProfile] = useState({
-    username: "",
-    email: "",
-    phone: "",
-    password: "",
-    profilePic: null,
-  });
-
-  const [stats, setStats] = useState([0, 0, 0, 0, 0, 0, 0]);
+export default function AccountWhite() {
+  // Profile form state
+  const [profile, setProfile] = useState({ username: "", email: "", phone: "", currentPassword: "", password: "", profilePic: null });
   const [passwordMessage, setPasswordMessage] = useState("");
-  const [profilePicPreview, setProfilePicPreview] = useState(null);
-  const navigate = useNavigate();
 
-  // Detectează dacă e admin
+  // Weekly stats
+  const [stats, setStats] = useState(Array(7).fill(0));
+
+  // XP & ranking
+  const [issuesList, setIssuesList] = useState([]);
+  const [xp, setXp] = useState(0);
+  const [accountCreatedAt, setAccountCreatedAt] = useState(null);
+  const [usersXP, setUsersXP] = useState([]);
+  const [rank, setRank] = useState(null);
+
+  const navigate = useNavigate();
   const user = auth.currentUser;
   const isAdmin = user && user.email === "admin@admin.com";
 
+  // Load user profile, XP and stats
   useEffect(() => {
     if (!user) return;
-
-    // Încarcă datele reale din Firestore
     const userRef = doc(db, "users", user.uid);
-    getDoc(userRef).then((docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setProfile((prev) => ({
-          ...prev,
-          username: data.username || "",
-          email: data.email || user.email || "",
-          phone: data.phone || "",
-          profilePicUrl: data.profilePicUrl || "",
-        }));
-        setProfilePicPreview(data.profilePicUrl || "");
+    getDoc(userRef).then(snap => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setProfile(p => ({ ...p, username: data.username||"", email: data.email||user.email, phone: data.phone||"" }));
+        setAccountCreatedAt(data.createdAt || user.metadata.creationTime);
+        setXp(data.xp || 0);
       } else {
-        setProfile((prev) => ({
-          ...prev,
-          email: user.email || "",
-        }));
-        setProfilePicPreview("");
+        setProfile(p => ({ ...p, email: user.email||"" }));
+        setAccountCreatedAt(user.metadata.creationTime);
+        setXp(0);
+        setDoc(userRef, { xp: 0, createdAt: user.metadata.creationTime }, { merge: true });
       }
     });
-
-    const q = query(collection(db, "issues"), where("uid", "==", user.uid));
-    const unsub = onSnapshot(q, (snap) => {
-      const counts = [0, 0, 0, 0, 0, 0, 0];
-      snap.docs.forEach((doc) => {
-        const data = doc.data();
-        const date = new Date(data.created);
-        const day = date.getDay(); // 0 = Duminică, 1 = Luni, ...
-        counts[day]++;
-      });
+    // Weekly stats
+    const statsQ = query(collection(db, "issues"), where("uid","==",user.uid));
+    const unsubStats = onSnapshot(statsQ, snap => {
+      const counts = Array(7).fill(0);
+      snap.docs.forEach(d => counts[new Date(d.data().created).getDay()]++);
       setStats(counts);
+    });
+    return () => unsubStats();
+  }, [user]);
+
+  // Listen all issues for XP and badges calculation
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "issues"), snap => {
+      setIssuesList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === "profilePic" && files && files[0]) {
-      setProfilePicPreview(URL.createObjectURL(files[0]));
-      setProfile((prev) => ({
-        ...prev,
-        profilePic: files[0],
-      }));
-    } else {
-      setProfile((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setPasswordMessage("");
-    // Actualizează doar dacă s-a introdus o parolă nouă
-    if (profile.password) {
-      try {
-        await updatePassword(auth.currentUser, profile.password);
-        setPasswordMessage("Parola a fost schimbată cu succes!");
-      } catch (error) {
-        setPasswordMessage("Eroare la schimbarea parolei: " + error.message);
-      }
-    } else {
-      setPasswordMessage("Datele au fost actualizate!");
-    }
-    // Poți adăuga și logica de update pentru alte date dacă vrei
-
-    const storage = getStorage();
-    const userRef = doc(db, "users", auth.currentUser.uid);
-
-    let profilePicUrl = profile.profilePicUrl || "";
-    if (profile.profilePic) {
-      // Upload imagine nouă doar dacă a fost selectată
-      const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
-      await uploadBytes(storageRef, profile.profilePic);
-      profilePicUrl = await getDownloadURL(storageRef);
-      // Salvează URL-ul în Firestore
-      await setDoc(userRef, { profilePicUrl }, { merge: true });
-    }
-
-    // Actualizează și celelalte date ale profilului
-    await setDoc(doc(db, "users", auth.currentUser.uid), {
-      username: profile.username,
-      email: profile.email,
-      phone: profile.phone,
-    }, { merge: true });
-
-    // --- ACTUALIZEAZĂ TOATE RAPORTĂRILE USERULUI ÎN ISSUES ---
-    const issuesSnap = await getDocs(query(collection(db, "issues"), where("uid", "==", auth.currentUser.uid)));
-    const updates = [];
-    issuesSnap.forEach((docu) => {
-      updates.push(
-        updateDoc(doc(db, "issues", docu.id), {
-          displayName: profile.username,
-          profilePicUrl: profilePicUrl,
-        })
-      );
-    });
-    await Promise.all(updates);
-
-    setPasswordMessage("Datele au fost actualizate!");
-    setProfile((prev) => ({
-      ...prev,
-      profilePic: null,
-      profilePicUrl: profilePicUrl,
-    }));
-    setProfilePicPreview(profilePicUrl);
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!window.confirm("Sigur vrei să ștergi contul? Această acțiune este ireversibilă!")) return;
-    const user = auth.currentUser;
+  // Update XP
+  useEffect(() => {
     if (!user) return;
+    const count = issuesList.filter(i => i.uid===user.uid).length;
+    const newXp = count * 5;
+    setXp(newXp);
+    setDoc(doc(db,"users",user.uid), { xp: newXp }, { merge: true });
+  }, [issuesList, user]);
 
+  // Leaderboard
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), snap => {
+      const all = snap.docs.map(d => ({ uid:d.id, xp:d.data().xp||0 }));
+      all.sort((a,b) => b.xp - a.xp);
+      setUsersXP(all);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!user || usersXP.length===0) return setRank(null);
+    const idx = usersXP.findIndex(u=>u.uid===user.uid);
+    setRank(idx>=0?idx+1:null);
+  }, [usersXP, user]);
+
+  // Form handlers
+  const handleChange = e => {
+    const { name,value,files } = e.target;
+    setProfile(p => ({ ...p, [name]: files?files[0]:value }));
+  };
+  const handleSubmit = async e => {
+    e.preventDefault(); setPasswordMessage("");
     try {
-      // Șterge datele din Firestore (profil)
-      await deleteDoc(doc(db, "users", user.uid));
-      // Șterge toate problemele raportate de utilizator
-      const issuesSnap = await getDocs(query(collection(db, "issues"), where("uid", "==", user.uid)));
-      const batch = db.batch ? db.batch() : null;
-      issuesSnap.forEach((docu) => {
-        if (batch) batch.delete(docu.ref);
-        else deleteDoc(docu.ref);
-      });
-      if (batch) await batch.commit();
-
-      // Șterge userul din Authentication
+      // Password
+      if (profile.password) {
+        if (!profile.currentPassword) return setPasswordMessage("Te rog introdu parola veche mai întâi.");
+        const cred = EmailAuthProvider.credential(user.email, profile.currentPassword);
+        await reauthenticateWithCredential(user,cred);
+        await updatePassword(user,profile.password);
+        setPasswordMessage("Parola a fost schimbată cu succes!");
+      } else {
+        setPasswordMessage("Datele au fost actualizate!");
+      }
+      // Profile pic
+      const userRef = doc(db,"users",user.uid);
+      if (profile.profilePic) {
+        const storage = getStorage();
+        const storageRef = ref(storage,`profilePics/${user.uid}`);
+        await uploadBytes(storageRef,profile.profilePic);
+        const url = await getDownloadURL(storageRef);
+        await setDoc(userRef,{profilePicUrl:url},{merge:true});
+      }
+      // Other fields
+      await setDoc(userRef,{
+        username:profile.username,
+        email:profile.email,
+        phone:profile.phone,
+      },{merge:true});
+    } catch(err) {
+      setPasswordMessage("Eroare: " + err.message);
+    }
+  };
+  const handleDeleteAccount = async () => {
+    if(!window.confirm("Sigur vrei să ștergi contul? Această acțiune e ireversibilă!")) return;
+    try {
+      await deleteDoc(doc(db,"users",user.uid));
+      const snap = await getDocs(query(collection(db,"issues"),where("uid","==",user.uid)));
+      const batch = writeBatch(db);
+      snap.forEach(d=>batch.delete(d.ref));
+      await batch.commit();
       await deleteUser(user);
-
-      // Redirect la landing page
       navigate("/");
-    } catch (err) {
+    } catch(err) {
       alert("Eroare la ștergerea contului: " + err.message);
     }
   };
 
-  const chartData = {
-    labels: days,
-    datasets: [
-      {
-        label: "Probleme raportate",
-        data: stats,
-        backgroundColor: "#36a2eb",
-      },
-    ],
-  };
+  // Chart
+  const chartData = { labels:days,datasets:[{label:"Probleme raportate",data:stats,backgroundColor:"#36a2eb"}] };
+  const chartOptions = { scales:{y:{beginAtZero:true,ticks:{stepSize:1,precision:0}}}};
 
-  const chartOptions = {
-    scales: {
-      y: {
-        beginAtZero: true,
-        max: 10,
-        ticks: {
-          stepSize: 1,
-          precision: 0,
-        },
-      },
-    },
+  // Styles
+  const styles = {
+    wrapper:{maxWidth:600,margin:"40px auto",padding:"0 16px",fontFamily:"sans-serif",color:"#222"},
+    box:{background:"#fff",padding:32,borderRadius:8,boxShadow:"0 2px 12px rgba(0,0,0,0.1)",marginBottom:24},
+    title:{marginBottom:24,fontSize:24,fontWeight:600},
+    field:{marginBottom:16,display:"flex",flexDirection:"column"},
+    input:{padding:"8px 12px",border:"1px solid #ccc",borderRadius:4},
+    btnSave:{padding:"10px 20px",border:"none",borderRadius:4,background:"#36a2eb",color:"#fff",cursor:"pointer"},
+    btnDelete:{padding:"10px 20px",border:"none",borderRadius:4,background:"#e53935",color:"#fff",cursor:"pointer"},
+    msgSuccess:{color:"green",marginTop:8},
+    msgError:{color:"red",marginTop:8},
   };
 
   return (
-    <div className="account-container">
-      <h2>Profilul meu</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Username:</label>
-          <input name="username" value={profile.username} onChange={handleChange} />
-        </div>
-        <div>
-          <label>Email:</label>
-          <input name="email" type="email" value={profile.email} onChange={handleChange} />
-        </div>
-        <div>
-          <label>Telefon:</label>
-          <input name="phone" value={profile.phone} onChange={handleChange} />
-        </div>
-        <div>
-          <label>Parolă nouă:</label>
-          <input name="password" type="password" value={profile.password} onChange={handleChange} />
-        </div>
-        <div>
-          <label>Poza de profil:</label>
-          <input name="profilePic" type="file" accept="image/*" onChange={handleChange} />
-        </div>
-        <div style={{ margin: "12px 0" }}>
-          <img
-            src={profilePicPreview || "/default-avatar.png"}
-            alt="preview"
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: "2px solid #eee",
-              background: "#eee",
-            }}
-          />
-        </div>
-        <button type="submit">Salvează modificările</button>
-      </form>
-      {passwordMessage && (
-        <div style={{ color: passwordMessage.includes("succes") ? "green" : "red", marginTop: 8 }}>
-          {passwordMessage}
+    <div style={styles.wrapper}>
+      {/* Profil */}
+      <div style={styles.box}>
+        <h2 style={styles.title}>Profilul meu</h2>
+        <form onSubmit={handleSubmit}>
+          <div style={styles.field}><label>Username:</label><input name="username" style={styles.input} value={profile.username} onChange={handleChange}/></div>
+          <div style={styles.field}><label>Email:</label><input name="email" type="email" style={styles.input} value={profile.email} onChange={handleChange}/></div>
+          <div style={styles.field}><label>Telefon:</label><input name="phone" style={styles.input} value={profile.phone} onChange={handleChange}/></div>
+          <div style={styles.field}><label>Parolă veche:</label><input name="currentPassword" type="password" style={styles.input} value={profile.currentPassword} onChange={handleChange}/></div>
+          <div style={styles.field}><label>Parolă nouă:</label><input name="password" type="password" style={styles.input} value={profile.password} onChange={handleChange}/></div>
+          <div style={styles.field}><label>Poza de profil:</label><input name="profilePic" type="file" accept="image/*" onChange={handleChange}/></div>
+          <button type="submit" style={styles.btnSave}>Salvează modificările</button>
+        </form>
+        {passwordMessage && <div style={passwordMessage.includes("succes")?styles.msgSuccess:styles.msgError}>{passwordMessage}</div>}
+        <button onClick={handleDeleteAccount} style={styles.btnDelete}>Șterge contul</button>
+      </div>
+
+      {/* XP & badge-uri */}
+      {!isAdmin && (
+        <div style={styles.box}>
+          <h3>Statisticile mele</h3>
+          <p>XP: <strong>{xp}</strong></p>
+          {rank && <p>Loc în clasament: <strong>{rank}</strong></p>}
         </div>
       )}
-      <button
-        type="button"
-        style={{
-          marginTop: 24,
-          background: "#e53935",
-          color: "#fff",
-          border: "none",
-          borderRadius: 6,
-          padding: "10px 20px",
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
-        onClick={handleDeleteAccount}
-      >
-        Șterge contul
-      </button>
-      {/* Chart doar pentru utilizatorii normali */}
+
+      {/* Grafic săptămânal */}
       {!isAdmin && (
-        <>
+        <div style={styles.box}>
           <h3>Status săptămânal</h3>
-          <Bar data={chartData} options={chartOptions} />
-        </>
+          <Bar data={chartData} options={chartOptions}/>
+        </div>
       )}
     </div>
   );
 }
-
-export default Account;
