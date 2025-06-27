@@ -7,12 +7,14 @@ import { useAuth } from "../AuthContext";
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const { login } = useAuth();
 
   const handleLogin = (e) => {
     e.preventDefault();
+    setError("");
     signInWithEmailAndPassword(auth, email, password)
       .then(() => {
         // După autentificare cu succes:
@@ -20,7 +22,7 @@ function Login() {
         navigate('/dashboard');
       })
       .catch((error) => {
-        console.error("Error logging in: ", error);
+        setError("Email sau parolă incorecte!");
       });
   };
 
@@ -48,6 +50,11 @@ function Login() {
         </div>
         <button type="submit">Login</button>
       </form>
+      {error && (
+        <div style={{ color: "red", marginTop: 8 }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }
