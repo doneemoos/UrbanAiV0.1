@@ -23,6 +23,12 @@
   align-items: center;
 }
 
+.split1{
+  width: 30%;
+  display: flex;
+  justify-content: space-between;
+}
+
 /* Navbar list */
 .navbar ul {
   display: flex;
@@ -41,7 +47,7 @@
 
 /* Navbar links */
 .navbar a, .navbar button {
-  color: #25597b;
+  color: #5a52a5;
   background: none;
   border: none;
   text-decoration: none;
@@ -57,7 +63,7 @@
 /* Hover efect pentru link-uri și buton */
 .navbar a:hover, .navbar button:hover {
   color: #fff;
-  background: #0070e0;
+  background: #988dfb;
 }
 
 /* Responsive (opțional) */
