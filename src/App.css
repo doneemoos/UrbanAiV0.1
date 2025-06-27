@@ -1,0 +1,6 @@
+.homepage-bg {
+  background: url("./components/img/bkgHero.png") no-repeat center top;
+  background-size: contain;
+  min-height: 100vh;
+  /* Poți adăuga și alte stiluri dacă vrei, ca să arate perfect pe orice device */
+}
