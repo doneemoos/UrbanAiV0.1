@@ -69,14 +69,15 @@ function ReportIssue() {
     setAddressWarning("");
     try {
       // 1. Cere categoria de la AI
-      const aiResp = await fetch("http://localhost:5000/classify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: desc }),
-      });
-      if (!aiResp.ok) throw new Error("Eroare la clasificarea AI");
-      const aiData = await aiResp.json();
-      const category = aiData.categorie || "Necunoscut";
+      // const aiResp = await fetch("http://localhost:5000/classify", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({ text: desc }),
+      // });
+      // if (!aiResp.ok) throw new Error("Eroare la clasificarea AI");
+      // const aiData = await aiResp.json();
+      // const category = aiData.categorie || "Necunoscut";
+      const category = "Necunoscut"; // fallback dacă nu folosești AI
 
       // 2. Geocode address
       const resp = await fetch(
