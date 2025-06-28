@@ -14,7 +14,6 @@ const auth = getAuth();
 
 const GOOGLE_API_KEY = "AIzaSyDW5XKKX0zKaYfddYpTzaF3alj98xMD0fw";
 
-// Coordonatele limită pentru Timișoara (folosite și în GoogleMapView)
 const TIMISOARA_BOUNDS = {
   north: 45.810,
   south: 45.690,
@@ -36,22 +35,18 @@ function ReportIssue() {
   const [address, setAddress] = useState("");
   const [desc, setDesc] = useState("");
   const [loading, setLoading] = useState(false);
-  const [images, setImages] = useState([]); // File[]
-  const [gallery, setGallery] = useState([]); // Data URLs pentru preview
+  const [images, setImages] = useState([]);
+  const [gallery, setGallery] = useState([]);
   const [addressWarning, setAddressWarning] = useState("");
   const navigate = useNavigate();
   const user = auth.currentUser;
 
-  // Galerie preview
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    // combină cu imaginile deja selectate
     let newImages = [...images, ...files];
-    // păstrează maxim 5
     if (newImages.length > 5) newImages = newImages.slice(0, 5);
     setImages(newImages);
 
-    // Galerie preview
     const readers = newImages.map(
       (file) =>
         new Promise((resolve) => {
@@ -68,18 +63,7 @@ function ReportIssue() {
     setLoading(true);
     setAddressWarning("");
     try {
-      // 1. Cere categoria de la AI
-      // const aiResp = await fetch("http://localhost:5000/classify", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ text: desc }),
-      // });
-      // if (!aiResp.ok) throw new Error("Eroare la clasificarea AI");
-      // const aiData = await aiResp.json();
-      // const category = aiData.categorie || "Necunoscut";
-      const category = "Necunoscut"; // fallback dacă nu folosești AI
-
-      // 2. Geocode address
+      const category = "Necunoscut";
       const resp = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
           address
@@ -88,7 +72,6 @@ function ReportIssue() {
       const data = await resp.json();
       if (data.status !== "OK") throw new Error("Adresa nu a putut fi găsită!");
 
-      // 3. Caută rezultate din Timișoara
       let loc = null;
       let foundTimisoara = false;
       for (const result of data.results) {
@@ -103,12 +86,9 @@ function ReportIssue() {
           break;
         }
       }
-      // Dacă nu a găsit Timișoara, ia primul rezultat
       if (!loc) {
         loc = data.results[0].geometry.location;
       }
-
-      // 4. Verifică dacă e în limitele Timișoarei
       if (!isInTimisoaraBounds(loc)) {
         setAddressWarning("Se acceptă doar adrese din Timișoara!");
         setLoading(false);
@@ -118,7 +98,6 @@ function ReportIssue() {
         setAddressWarning("Adresa introdusă există și în alte orașe. A fost selectată automat adresa din Timișoara, dacă există.");
       }
 
-      // Upload poze în Storage și ia URL-urile
       let imageUrls = [];
       for (let i = 0; i < images.length; i++) {
         const img = images[i];
@@ -139,7 +118,6 @@ function ReportIssue() {
       if (userSnap.exists()) {
         const data = userSnap.data();
         if (data.username) displayName = data.username;
-        // Folosește defaultProfile dacă nu există profilePicUrl
         profilePicUrl = data.profilePicUrl ? data.profilePicUrl : defaultProfile;
       }
 
@@ -166,57 +144,163 @@ function ReportIssue() {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{ maxWidth: 400, margin: "2rem auto" }}
-    >
-      <h2>Raportează o problemă</h2>
-      <input
-        placeholder="Titlu"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        required
-      />
-      <input
-        placeholder="Adresă (stradă și număr)"
-        value={address}
-        onChange={(e) => setAddress(e.target.value)}
-        required
-      />
-      <textarea
-        placeholder="Descriere"
-        value={desc}
-        onChange={(e) => setDesc(e.target.value)}
-      />
-      <div style={{ margin: "1rem 0" }}>
-        <label>
-          Poze (max 5):
+    <div style={{
+      minHeight: "100vh",
+      background: "#f4f4f5",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          boxShadow: "0 4px 24px #0001",
+          padding: "2.5rem 2.5rem 2rem 2.5rem",
+          minWidth: 350,
+          maxWidth: 500,
+          width: "100%",
+          margin: "2rem auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: "1.5rem"
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontWeight: 600 }}>Raportează o problemă</h2>
+          <div style={{ color: "#888", fontSize: 16, marginTop: 4 }}>
+            Ajută-ne să îmbunătățim orașul raportând orice problemă ai observat.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 16 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontWeight: 500, marginBottom: 6, display: "block" }}>
+              Titlu problemă*
+            </label>
+            <input
+              placeholder="Ex: Gropi în asfalt"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: 8,
+                border: "1px solid #ccc",
+                fontSize: 16
+              }}
+            />
+          </div>
+        </div>
+        <div>
+          <label style={{ fontWeight: 500, marginBottom: 6, display: "block" }}>
+            Adresă (stradă și număr)*
+          </label>
+          <input
+            placeholder="Ex: Strada Mare 12"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            required
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: 8,
+              border: "1px solid #ccc",
+              fontSize: 16
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontWeight: 500, marginBottom: 6, display: "block" }}>
+            Descriere
+          </label>
+          <textarea
+            placeholder="Descrie problema observată"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            rows={3}
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: 8,
+              border: "1px solid #ccc",
+              fontSize: 16,
+              resize: "vertical"
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontWeight: 500, marginBottom: 6, display: "block" }}>
+            Atașează poze (max 5)
+          </label>
           <input
             type="file"
             accept="image/*"
             multiple
             onChange={handleImageChange}
+            style={{ marginBottom: 8 }}
           />
-        </label>
-        {/* Galerie preview */}
-        <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-          {gallery.map((url, idx) => (
-            <img
-              key={idx}
-              src={url}
-              alt={`preview-${idx}`}
-              style={{ width: 70, height: 70, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }}
-            />
-          ))}
+          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            {gallery.map((url, idx) => (
+              <img
+                key={idx}
+                src={url}
+                alt={`preview-${idx}`}
+                style={{
+                  width: 60,
+                  height: 60,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                  border: "1px solid #ccc"
+                }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-      {addressWarning && (
-        <div style={{ color: "red", marginBottom: 8 }}>{addressWarning}</div>
-      )}
-      <button type="submit" disabled={loading}>
-        {loading ? "Se trimite..." : "Trimite"}
-      </button>
-    </form>
+        {addressWarning && (
+          <div style={{ color: "red", marginBottom: 8 }}>{addressWarning}</div>
+        )}
+        <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              flex: 1,
+              background: "#f4f4f5",
+              color: "#222",
+              border: "1px solid #ccc",
+              borderRadius: 8,
+              padding: "12px 0",
+              fontWeight: 500,
+              fontSize: 16,
+              cursor: "pointer"
+            }}
+            disabled={loading}
+          >
+            Anulează
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              flex: 1,
+              background: "#1976d2",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "12px 0",
+              fontWeight: 600,
+              fontSize: 16,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1
+            }}
+          >
+            {loading ? "Se trimite..." : "Trimite raportul"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
