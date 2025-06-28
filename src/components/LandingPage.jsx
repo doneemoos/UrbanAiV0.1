@@ -48,7 +48,7 @@ function LandingPage() {
   return (
     <div className="LandingPage">
       <div className="hero">
-        <h1>UrbanAi - your intelligent city</h1>
+        <h1>UrbanTm - your intelligent city</h1>
         <p>Report any problem or suggestion to help us improve our city together.</p>
       </div>
 
