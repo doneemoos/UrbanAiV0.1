@@ -30,27 +30,23 @@ function getCircleOptions(issue, allIssues) {
       Math.abs(i.lng - issue.lng) < 0.0001
   ).length;
 
-  const baseOptions = {
-    fillOpacity: 0.9,
-    strokeOpacity: 0.9, // la fel ca fill
-    radius: 15,
-    strokeWeight: 1,
-    zIndex: 2,
-  };
-
-  let color = "#00ff00";
+  let color = "#00e600"; // verde puternic
   if (count === 1) {
-    color = "#00ff00";
+    color = "#00e600"; // verde
   } else if (count >= 2 && count <= 5) {
-    color = "#ffff00";
+    color = "#ffd600"; // galben intens
   } else if (count >= 6) {
-    color = "#ff0000";
+    color = "#ff1744"; // roșu intens
   }
 
   return {
-    ...baseOptions,
+    fillOpacity: 0.85,
+    strokeOpacity: 1,
+    radius: 20,
+    strokeWeight: 2,
+    zIndex: 2,
     fillColor: color,
-    strokeColor: color, // aceeași culoare ca fill
+    strokeColor: "#fff", // contur alb
   };
 }
 
@@ -70,6 +66,43 @@ function GoogleMapView({ markers = [] }) {
       },
       strictBounds: true,
     },
+    styles: [
+      {
+        featureType: "poi.business",
+        stylers: [{ visibility: "off" }]
+      },
+      {
+        featureType: "poi.park",
+        elementType: "labels.text",
+        stylers: [{ visibility: "off" }]
+      },
+      {
+        featureType: "road",
+        elementType: "labels.icon",
+        stylers: [{ visibility: "off" }]
+      },
+      {
+        featureType: "transit",
+        stylers: [{ visibility: "off" }]
+      },
+      {
+        featureType: "water",
+        stylers: [{ color: "#aadaff" }]
+      },
+      {
+        featureType: "landscape",
+        stylers: [{ color: "#f2f2f2" }]
+      },
+      {
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#444444" }]
+      },
+      {
+        featureType: "administrative",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#888888" }]
+      }
+    ]
   };
 
   // Problemele de la coordonatele selectate (cu toleranță)
